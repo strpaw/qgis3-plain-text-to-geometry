@@ -23,7 +23,8 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox
+from qgis.core import *
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -179,6 +180,36 @@ class PlainTextToGeometry:
                 action)
             self.iface.removeToolBarIcon(action)
 
+    def is_coordinate_format_set(self):
+        """ Check if coordinate format is set, if current text is not [choose] (index is !>= 1 ) for drop down
+        lists related to coordinate formats. """
+        if (self.dlg.comboBoxCoordinatesSequence.currentIndex() >= 1 and
+                self.dlg.comboBoxCoordinatesSeparator.currentIndex() >= 1 and
+                self.dlg.comboBoxCoordinatesFormat.currentIndex() >= 1):
+            return True
+
+    def get_plain_text(self):
+        return self.dlg.textEditPlainText.toPlainText()
+
+    def is_required_input_plugin_form(self):
+        """ Check if required data such as: coordinate formats defined, plain text etc. is entered in plugin form. """
+        err_msg = ''
+        if not self.is_coordinate_format_set():
+            err_msg += 'Set coordinate format!\n'
+        if not self.dlg.lineEditOutputLayerName.text().strip():
+            err_msg += 'Output layer name is required!\n'
+        if not self.dlg.lineEditFeatureName.text().strip():
+            err_msg += 'Point(s) prefix, line, polygon name is required!\n'
+        if not self.get_plain_text():
+            err_msg += 'Plain text is required!\n'
+        if err_msg:
+            QMessageBox.critical(QWidget(), "Message", err_msg)
+        else:
+            return True
+
+    def plain_text_to_geometry(self):
+        if self.is_required_input_plugin_form():
+            pass
 
     def run(self):
         """Run method that performs all the real work"""
@@ -188,7 +219,8 @@ class PlainTextToGeometry:
         if self.first_start == True:
             self.first_start = False
             self.dlg = PlainTextToGeometryDialog()
-
+            self.dlg.pushButtonCancel.clicked.connect(self.dlg.close)
+            self.dlg.pushButtoPlainTextToGeometry.clicked.connect(self.plain_text_to_geometry)
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
