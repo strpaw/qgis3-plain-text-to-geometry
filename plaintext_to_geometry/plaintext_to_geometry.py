@@ -180,6 +180,20 @@ class PlainTextToGeometry:
                 action)
             self.iface.removeToolBarIcon(action)
 
+    def clear_coordinate_format_setting(self):
+        self.dlg.comboBoxCoordinatesSequence.setCurrentIndex(0)
+        self.dlg.comboBoxCoordinatesSeparator.setCurrentIndex(0)
+        self.dlg.comboBoxCoordinatesFormat.setCurrentIndex(0)
+        self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
+
+    def clear_plugin_form(self):
+        self.clear_coordinate_format_setting()
+        self.dlg.lineEditOutputLayerName.clear()
+        self.dlg.comboBoxOutputGeometryType.setCurrentIndex(0)
+        self.dlg.lineEditFeatureName.clear()
+        self.dlg.textEditPlainText.clear()
+        self.dlg.tableWidgetCoordinates.setRowCount(0)
+
     def is_coordinate_format_set(self):
         """ Check if coordinate format is set, if current text is not [choose] (index is !>= 1 ) for drop down
         lists related to coordinate formats. """
@@ -221,8 +235,10 @@ class PlainTextToGeometry:
             self.dlg = PlainTextToGeometryDialog()
             self.dlg.pushButtonCancel.clicked.connect(self.dlg.close)
             self.dlg.pushButtoPlainTextToGeometry.clicked.connect(self.plain_text_to_geometry)
+
         # show the dialog
         self.dlg.show()
+        self.clear_plugin_form()
         # Run the dialog event loop
         result = self.dlg.exec_()
         # See if OK was pressed
