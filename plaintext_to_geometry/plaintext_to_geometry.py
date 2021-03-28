@@ -21,7 +21,7 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox
 from qgis.core import *
@@ -44,6 +44,8 @@ class PlainTextToGeometry:
             application at run time.
         :type iface: QgsInterface
         """
+        self.geometry_type = None
+        self.output_layer = None
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -205,6 +207,89 @@ class PlainTextToGeometry:
     def get_plain_text(self):
         return self.dlg.textEditPlainText.toPlainText()
 
+    def set_geometry_type(self):
+        geometry_type = self.dlg.comboBoxOutputGeometryType.currentText()
+        if geometry_type == 'Line':
+            geometry_type += 'String'
+        self.geometry_type = geometry_type
+
+    @staticmethod
+    def get_vector_layers_by_name(layer_name):
+        """ Return list of vector layers with given name.
+        param layer_name: str
+        return: list -> QgsVectorLayer
+        """
+        vector_layers = []
+        layers = QgsProject.instance().mapLayersByName(layer_name)
+        for layer in layers:
+            if layer.type() == QgsMapLayer.VectorLayer:
+                vector_layers.append(layer)
+        return vector_layers
+
+    @staticmethod
+    def not_memory_layer(layer):
+        """ Return true if layer is not memory (provider data type is other than memory).
+        param layer_name: str
+        return: bool
+        """
+        return bool('memory' != layer.providerType())
+
+    @staticmethod
+    def geometry_type_as_string(layer):
+        """ Return string representation of the layer geometry type.
+        param layer: QgsVectorLayer
+        return: str, example Point., LineString, Polygon
+        """
+        return QgsWkbTypes.displayString(int(layer.wkbType()))
+
+    def not_geometry_type(self, layer, geometry_type):
+        """ Return true if layer geometry type is different than passed by geometry_type).
+        param layer: QgsVectorLayer
+        param geometry_type: str, example: Point, LineString, Polygon
+        return: bool
+        """
+        return bool(geometry_type != self.geometry_type_as_string(layer))
+
+    def get_potential_plaintext_layers(self, layers):
+        """ Return list of QgsVectorLayer that match plugin PlainTextToGeometry output layer:
+            - layer is memory type
+            - geometry type is the same as Geometry type set by plugin
+        param layers: list -> QgsVectorLayer
+        return: list -> QgsVectorLayer
+        """
+        layer_candidates = []
+        for layer in layers:
+            if self.not_memory_layer(layer):
+                continue
+            if self.not_geometry_type(layer, self.geometry_type):
+                continue
+            layer_candidates.append(layer)
+        return layer_candidates
+
+    def get_matching_layers_from_map(self, layer_name):
+        """ Check layers in Layer (TOC) in current Qgs Project and return those layers that match
+        plugin PlainTextToGeometry output layer.
+        param layer_name: str
+        return: list -> QgsVectorLayer
+        """
+        vector_layers = self.get_vector_layers_by_name(layer_name)
+        if vector_layers:
+            candidate_layers = self.get_potential_plaintext_layers(vector_layers)
+            return candidate_layers
+
+    def create_new_memory_layer(self, layer_name):
+        """ Create memory layer with geometry type assigned by PlainTextToGeometry plugin.
+        param layer_name: str
+        return: QgsVectorLayer
+        """
+        layer = QgsVectorLayer('{}?crs=epsg:4326'.format(self.geometry_type), layer_name, 'memory')
+        provider = layer.dataProvider()
+        layer.startEditing()
+        provider.addAttributes([QgsField("FEAT_NAME", QVariant.String, len=100)])
+        layer.commitChanges()
+        QgsProject.instance().addMapLayer(layer)
+        return layer
+
     def is_required_input_plugin_form(self):
         """ Check if required data such as: coordinate formats defined, plain text etc. is entered in plugin form. """
         err_msg = ''
@@ -223,7 +308,19 @@ class PlainTextToGeometry:
 
     def plain_text_to_geometry(self):
         if self.is_required_input_plugin_form():
-            pass
+            self.set_geometry_type()
+            layers = self.get_matching_layers_from_map(self.dlg.lineEditOutputLayerName.text().strip())
+            if layers:
+                layer_count = len(layers)
+                if layer_count == 1:
+                    self.output_layer = layers[0]
+                else:
+                    QMessageBox.critical(QWidget(), "Message", "{} matching layers with name {}".format(layer_count, self.dlg.lineEditOutputLayerName.text().strip()))
+                    self.output_layer = None
+            else:
+                self.output_layer = self.create_new_memory_layer(self.dlg.lineEditOutputLayerName.text().strip())
+            if self.output_layer:
+                self.iface.setActiveLayer(self.output_layer)
 
     def run(self):
         """Run method that performs all the real work"""
