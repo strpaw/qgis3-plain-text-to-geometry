@@ -206,6 +206,11 @@
      <height>380</height>
     </rect>
    </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+    </font>
+   </property>
   </widget>
   <widget class="QLabel" name="label_12">
    <property name="geometry">
@@ -328,12 +333,12 @@
    </property>
    <column>
     <property name="text">
-     <string>LAT</string>
+     <string>LON</string>
     </property>
    </column>
    <column>
     <property name="text">
-     <string>LON</string>
+     <string>LAT</string>
     </property>
    </column>
   </widget>

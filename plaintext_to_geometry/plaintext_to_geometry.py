@@ -23,7 +23,7 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox
+from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox, QTableWidget, QTableWidgetItem
 from qgis.core import *
 
 # Initialize Qt resources from file resources.py
@@ -66,6 +66,7 @@ class PlainTextToGeometry:
         :type iface: QgsInterface
         """
         self.coordinates_pair_format = {}
+        self.coordinate_extractor = None
         self.geometry_type = None
         self.output_layer = None
         # Save reference to the QGIS interface
@@ -227,16 +228,20 @@ class PlainTextToGeometry:
                 self.dlg.comboBoxCoordinatesFormat.currentIndex()]
             self.coordinates_pair_format['separator'] = coord_pair_sep[
                 self.dlg.comboBoxCoordinatesSeparator.currentIndex()]
+            self.set_coordinate_extractor()
             self.show_sample_coordinate_format()
         else:
             self.coordinates_pair_format = {}
+            self.coordinate_extractor = None
             self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
 
+    def set_coordinate_extractor(self):
+        self.coordinate_extractor = CoordinatePairExtraction(self.coordinates_pair_format['sequence'],
+                                                             self.coordinates_pair_format["coordinate_format"],
+                                                             self.coordinates_pair_format['separator'])
+
     def show_sample_coordinate_format(self):
-        coord_extraction = CoordinatePairExtraction(self.coordinates_pair_format['sequence'],
-                                                    self.coordinates_pair_format["coordinate_format"],
-                                                    self.coordinates_pair_format['separator'])
-        example_coordinates = coord_extraction.get_coordinates_pair_example()
+        example_coordinates = self.coordinate_extractor.get_coordinates_pair_example()
         self.dlg.labelCoordinatesExample.setText(example_coordinates)
 
     def get_plain_text(self):
@@ -325,6 +330,25 @@ class PlainTextToGeometry:
         QgsProject.instance().addMapLayer(layer)
         return layer
 
+    def get_coordinates_from_plain_text(self):
+        plain_text = self.get_plain_text()
+        return self.coordinate_extractor.extract_coordinates(plain_text)
+
+    def insert_coordinates_to_list(self, lon, lat):
+        row_pos = self.dlg.tableWidgetCoordinates.rowCount()
+        self.dlg.tableWidgetCoordinates.insertRow(row_pos)
+        self.dlg.tableWidgetCoordinates.setItem(row_pos, 0, QTableWidgetItem(lon))
+        self.dlg.tableWidgetCoordinates.setItem(row_pos, 1, QTableWidgetItem(lat))
+
+    def fill_in_coordinate_list(self, coordinate_list):
+        self.dlg.tableWidgetCoordinates.setRowCount(0)
+        if self.coordinate_extractor.coord_sequence == SEQUENCE_LON_LAT:
+            for lon, lat in coordinate_list:
+                self.insert_coordinates_to_list(lon, lat)
+        elif self.coordinate_extractor.coord_sequence == SEQUENCE_LAT_LON:
+            for lat, lon in coordinate_list:
+                self.insert_coordinates_to_list(lon, lat)
+
     def is_required_input_plugin_form(self):
         """ Check if required data such as: coordinate formats defined, plain text etc. is entered in plugin form. """
         err_msg = ''
@@ -356,6 +380,9 @@ class PlainTextToGeometry:
                 self.output_layer = self.create_new_memory_layer(self.dlg.lineEditOutputLayerName.text().strip())
             if self.output_layer:
                 self.iface.setActiveLayer(self.output_layer)
+
+            coordinates = self.get_coordinates_from_plain_text()
+            self.fill_in_coordinate_list(coordinates)
 
     def run(self):
         """Run method that performs all the real work"""
