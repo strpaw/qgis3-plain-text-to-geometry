@@ -31,6 +31,27 @@ from .resources import *
 # Import the code for the dialog
 from .plaintext_to_geometry_dialog import PlainTextToGeometryDialog
 import os.path
+from .aviation_gis_toolkit.coordinate_extraction import *
+
+coord_sequence = {
+    1: SEQUENCE_LAT_LON,
+    2: SEQUENCE_LON_LAT
+}
+
+coord_pair_sep = {
+    1: COORD_PAIR_SEP_NONE,
+    2: COORD_PAIR_SEP_SPACE,
+    3: COORD_PAIR_SEP_HYPHEN,
+    4: COORD_PAIR_SEP_SLASH,
+    5: COORD_PAIR_SEP_BACKSLASH
+}
+
+coord_format = {
+    1: DMSH_COMP,
+    2: HDMS_COMP,
+    3: DMSH_SEP,
+    4: HDMS_SEP
+}
 
 
 class PlainTextToGeometry:
@@ -44,6 +65,7 @@ class PlainTextToGeometry:
             application at run time.
         :type iface: QgsInterface
         """
+        self.coordinates_pair_format = {}
         self.geometry_type = None
         self.output_layer = None
         # Save reference to the QGIS interface
@@ -196,13 +218,26 @@ class PlainTextToGeometry:
         self.dlg.textEditPlainText.clear()
         self.dlg.tableWidgetCoordinates.setRowCount(0)
 
-    def is_coordinate_format_set(self):
-        """ Check if coordinate format is set, if current text is not [choose] (index is !>= 1 ) for drop down
-        lists related to coordinate formats. """
+    def set_coordinate_pair_format(self):
         if (self.dlg.comboBoxCoordinatesSequence.currentIndex() >= 1 and
                 self.dlg.comboBoxCoordinatesSeparator.currentIndex() >= 1 and
                 self.dlg.comboBoxCoordinatesFormat.currentIndex() >= 1):
-            return True
+            self.coordinates_pair_format['sequence'] = coord_sequence[self.dlg.comboBoxCoordinatesSequence.currentIndex()]
+            self.coordinates_pair_format['coordinate_format'] = coord_format[
+                self.dlg.comboBoxCoordinatesFormat.currentIndex()]
+            self.coordinates_pair_format['separator'] = coord_pair_sep[
+                self.dlg.comboBoxCoordinatesSeparator.currentIndex()]
+            self.show_sample_coordinate_format()
+        else:
+            self.coordinates_pair_format = {}
+            self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
+
+    def show_sample_coordinate_format(self):
+        coord_extraction = CoordinatePairExtraction(self.coordinates_pair_format['sequence'],
+                                                    self.coordinates_pair_format["coordinate_format"],
+                                                    self.coordinates_pair_format['separator'])
+        example_coordinates = coord_extraction.get_coordinates_pair_example()
+        self.dlg.labelCoordinatesExample.setText(example_coordinates)
 
     def get_plain_text(self):
         return self.dlg.textEditPlainText.toPlainText()
@@ -293,7 +328,7 @@ class PlainTextToGeometry:
     def is_required_input_plugin_form(self):
         """ Check if required data such as: coordinate formats defined, plain text etc. is entered in plugin form. """
         err_msg = ''
-        if not self.is_coordinate_format_set():
+        if not self.coordinates_pair_format:
             err_msg += 'Set coordinate format!\n'
         if not self.dlg.lineEditOutputLayerName.text().strip():
             err_msg += 'Output layer name is required!\n'
@@ -330,6 +365,9 @@ class PlainTextToGeometry:
         if self.first_start == True:
             self.first_start = False
             self.dlg = PlainTextToGeometryDialog()
+            self.dlg.comboBoxCoordinatesSequence.currentIndexChanged.connect(self.set_coordinate_pair_format)
+            self.dlg.comboBoxCoordinatesSeparator.currentIndexChanged.connect(self.set_coordinate_pair_format)
+            self.dlg.comboBoxCoordinatesFormat.currentIndexChanged.connect(self.set_coordinate_pair_format)
             self.dlg.pushButtonCancel.clicked.connect(self.dlg.close)
             self.dlg.pushButtoPlainTextToGeometry.clicked.connect(self.plain_text_to_geometry)
 
