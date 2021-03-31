@@ -212,13 +212,16 @@ class PlainTextToGeometry:
         self.dlg.comboBoxCoordinatesFormat.setCurrentIndex(0)
         self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
 
+    def clear_coordinate_list(self):
+        self.dlg.tableWidgetCoordinates.setRowCount(0)
+
     def clear_plugin_form(self):
         self.clear_coordinate_format_setting()
         self.dlg.lineEditOutputLayerName.clear()
         self.dlg.comboBoxOutputGeometryType.setCurrentIndex(0)
         self.dlg.lineEditFeatureName.clear()
         self.dlg.textEditPlainText.clear()
-        self.dlg.tableWidgetCoordinates.setRowCount(0)
+        self.clear_coordinate_list()
 
     def set_coordinate_pair_format(self):
         if (self.dlg.comboBoxCoordinatesSequence.currentIndex() >= 1 and
@@ -461,6 +464,7 @@ class PlainTextToGeometry:
             self.dlg.comboBoxCoordinatesFormat.currentIndexChanged.connect(self.set_coordinate_pair_format)
             self.dlg.pushButtonCancel.clicked.connect(self.dlg.close)
             self.dlg.pushButtoPlainTextToGeometry.clicked.connect(self.plain_text_to_geometry)
+            self.dlg.textEditPlainText.textChanged.connect(self.clear_coordinate_list)
 
         # show the dialog
         self.dlg.show()
