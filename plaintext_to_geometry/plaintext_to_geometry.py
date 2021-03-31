@@ -32,6 +32,7 @@ from .resources import *
 from .plaintext_to_geometry_dialog import PlainTextToGeometryDialog
 import os.path
 from .aviation_gis_toolkit.coordinate_extraction import *
+from .aviation_gis_toolkit.coordinate import *
 
 coord_sequence = {
     1: SEQUENCE_LAT_LON,
@@ -349,6 +350,69 @@ class PlainTextToGeometry:
             for lat, lon in coordinate_list:
                 self.insert_coordinates_to_list(lon, lat)
 
+    def get_qgspoints(self):
+        """ Create list of QgsPoints based on extracted coordinates.
+        return: points: list of QGsPoint
+        """
+        points = []
+        points_count = self.dlg.tableWidgetCoordinates.rowCount()
+
+        for i in range(0, points_count):
+            lon = Coordinate(self.dlg.tableWidgetCoordinates.item(i, 0).text(), AT_LONGITUDE)
+            lat = Coordinate(self.dlg.tableWidgetCoordinates.item(i, 1).text(), AT_LATITUDE)
+            lon_dd = lon.convert_to_dd()
+            lat_dd = lat.convert_to_dd()
+
+            if lon_dd is not None and lat_dd is not None:
+                point = QgsPointXY(lon_dd, lat_dd)
+                points.append(point)
+
+        return points
+
+    def add_points(self, points):
+        """ Add point features to output layer.
+        param points: list of QGsPoint
+        """
+        feat = QgsFeature()
+        self.output_layer.startEditing()
+        prov = self.output_layer.dataProvider()
+        point_nr = 0
+        for point in points:
+            point_nr += 1
+            point_name = '{}_{}'.format(self.dlg.lineEditFeatureName.text().strip(), point_nr)
+            point_geom = QgsGeometry.fromPointXY(point)
+            feat.setGeometry(point_geom)
+            feat.setAttributes([point_name])
+            prov.addFeatures([feat])
+        self.output_layer.commitChanges()
+        self.output_layer.updateExtents()
+        self.iface.mapCanvas().setExtent(self.output_layer.extent())
+        self.iface.mapCanvas().refresh()
+
+    def add_feature(self, points):
+        """ Add feature (points, line or polygon) to  output layer based on extracted coordinates.
+        param points: list of QGsPoint
+        """
+        if self.geometry_type == 'Point':
+            self.add_points(points)
+        else:
+            feat = QgsFeature()
+            self.output_layer.startEditing()
+            prov = self.output_layer.dataProvider()
+
+            if self.geometry_type == 'LineString':
+                feat_geom = QgsGeometry.fromPolylineXY(points)
+            else:  # Polygon
+                feat_geom = QgsGeometry.fromPolygonXY([points])
+
+            feat.setGeometry(feat_geom)
+            feat.setAttributes([self.dlg.lineEditFeatureName.text().strip()])
+            prov.addFeatures([feat])
+            self.output_layer.commitChanges()
+            self.output_layer.updateExtents()
+            self.iface.mapCanvas().setExtent(self.output_layer.extent())
+            self.iface.mapCanvas().refresh()
+
     def is_required_input_plugin_form(self):
         """ Check if required data such as: coordinate formats defined, plain text etc. is entered in plugin form. """
         err_msg = ''
@@ -381,8 +445,8 @@ class PlainTextToGeometry:
             if self.output_layer:
                 self.iface.setActiveLayer(self.output_layer)
 
-            coordinates = self.get_coordinates_from_plain_text()
-            self.fill_in_coordinate_list(coordinates)
+            self.fill_in_coordinate_list(self.get_coordinates_from_plain_text())
+            self.add_feature(self.get_qgspoints())
 
     def run(self):
         """Run method that performs all the real work"""
