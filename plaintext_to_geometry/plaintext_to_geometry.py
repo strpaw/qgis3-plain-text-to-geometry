@@ -70,6 +70,7 @@ class PlainTextToGeometry:
         self.coordinate_extractor = None
         self.geometry_type = None
         self.output_layer = None
+        self.coordinates_extracted = False
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -215,6 +216,12 @@ class PlainTextToGeometry:
     def clear_coordinate_list(self):
         self.dlg.tableWidgetCoordinates.setRowCount(0)
 
+    def plain_text_edited(self):
+        if self.coordinates_extracted:
+            self.coordinates_extracted = False
+            self.dlg.tableWidgetCoordinates.setRowCount(0)
+            self.clear_coordinates_marking()
+
     def clear_plugin_form(self):
         self.clear_coordinate_format_setting()
         self.dlg.lineEditOutputLayerName.clear()
@@ -335,8 +342,28 @@ class PlainTextToGeometry:
         return layer
 
     def get_coordinates_from_plain_text(self):
-        plain_text = self.get_plain_text()
-        return self.coordinate_extractor.extract_coordinates(plain_text)
+        plain_text = self.dlg.textEditPlainText.toHtml()
+        coordinates = self.coordinate_extractor.extract_coordinates(plain_text)
+        return coordinates
+
+    def mark_coordinates(self, coordinates):
+        """ Mark extracted coordinates in plain text - set the color to green.
+        param coordinates: list, list of extracted coordinates
+        """
+        if coordinates:
+            text = self.dlg.textEditPlainText.toHtml()
+            for c1, c2 in coordinates:
+                coord_pair = '{}{}{}'.format(c1, self.coordinates_pair_format["separator"], c2)
+                text = re.sub(coord_pair, '<span style="color:green;">{}</span>'.format(coord_pair), text)
+
+            self.dlg.textEditPlainText.setHtml(text)
+
+    def clear_coordinates_marking(self):
+        """ Clear green color for extracted coordinates in plain text. """
+        html = self.dlg.textEditPlainText.toHtml()
+        html = html.replace('<span style=" color:#008000;">', '')
+        html = html.replace('</span>', '')
+        self.dlg.textEditPlainText.setHtml(html)
 
     def insert_coordinates_to_list(self, lon, lat):
         row_pos = self.dlg.tableWidgetCoordinates.rowCount()
@@ -433,6 +460,7 @@ class PlainTextToGeometry:
             return True
 
     def plain_text_to_geometry(self):
+        self.coordinates_extracted = False
         if self.is_required_input_plugin_form():
             self.set_geometry_type()
             layers = self.get_matching_layers_from_map(self.dlg.lineEditOutputLayerName.text().strip())
@@ -448,8 +476,15 @@ class PlainTextToGeometry:
             if self.output_layer:
                 self.iface.setActiveLayer(self.output_layer)
 
-            self.fill_in_coordinate_list(self.get_coordinates_from_plain_text())
-            self.add_feature(self.get_qgspoints())
+            coordinates = self.get_coordinates_from_plain_text()
+            if coordinates:
+                self.mark_coordinates(coordinates)
+                self.fill_in_coordinate_list(coordinates)
+                self.add_feature(self.get_qgspoints())
+                self.coordinates_extracted = True
+            else:
+                self.dlg.tableWidgetCoordinates.setRowCount(0)
+                self.clear_coordinates_marking()
 
     def run(self):
         """Run method that performs all the real work"""
@@ -464,7 +499,7 @@ class PlainTextToGeometry:
             self.dlg.comboBoxCoordinatesFormat.currentIndexChanged.connect(self.set_coordinate_pair_format)
             self.dlg.pushButtonCancel.clicked.connect(self.dlg.close)
             self.dlg.pushButtoPlainTextToGeometry.clicked.connect(self.plain_text_to_geometry)
-            self.dlg.textEditPlainText.textChanged.connect(self.clear_coordinate_list)
+            self.dlg.textEditPlainText.textChanged.connect(self.plain_text_edited)
 
         # show the dialog
         self.dlg.show()
