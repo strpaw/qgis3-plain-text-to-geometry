@@ -216,11 +216,18 @@ class PlainTextToGeometry:
     def clear_coordinate_list(self):
         self.dlg.tableWidgetCoordinates.setRowCount(0)
 
-    def plain_text_edited(self):
+    def clear_extracted_coordinates(self):
+        """ Clear marking for extracted coordinates and reset coordinate list. """
+        self.coordinates_extracted = False
+        self.dlg.tableWidgetCoordinates.setRowCount(0)
+        self.clear_coordinates_marking()
+
+    def input_data_changes(self):
+        """ Clear marking for extracted coordinates and reset coordinate list in case:
+            - plain text is edited
+            - geometry type changes """
         if self.coordinates_extracted:
-            self.coordinates_extracted = False
-            self.dlg.tableWidgetCoordinates.setRowCount(0)
-            self.clear_coordinates_marking()
+            self.clear_extracted_coordinates()
 
     def clear_plugin_form(self):
         self.clear_coordinate_format_setting()
@@ -240,10 +247,12 @@ class PlainTextToGeometry:
             self.coordinates_pair_format['separator'] = coord_pair_sep[
                 self.dlg.comboBoxCoordinatesSeparator.currentIndex()]
             self.set_coordinate_extractor()
+            self.clear_extracted_coordinates()
             self.show_sample_coordinate_format()
         else:
             self.coordinates_pair_format = {}
             self.coordinate_extractor = None
+            self.clear_extracted_coordinates()
             self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
 
     def set_coordinate_extractor(self):
@@ -483,8 +492,7 @@ class PlainTextToGeometry:
                 self.add_feature(self.get_qgspoints())
                 self.coordinates_extracted = True
             else:
-                self.dlg.tableWidgetCoordinates.setRowCount(0)
-                self.clear_coordinates_marking()
+                self.clear_extracted_coordinates()
 
     def run(self):
         """Run method that performs all the real work"""
@@ -499,7 +507,10 @@ class PlainTextToGeometry:
             self.dlg.comboBoxCoordinatesFormat.currentIndexChanged.connect(self.set_coordinate_pair_format)
             self.dlg.pushButtonCancel.clicked.connect(self.dlg.close)
             self.dlg.pushButtoPlainTextToGeometry.clicked.connect(self.plain_text_to_geometry)
-            self.dlg.textEditPlainText.textChanged.connect(self.plain_text_edited)
+            self.dlg.textEditPlainText.textChanged.connect(self.input_data_changes)
+            self.dlg.comboBoxOutputGeometryType.currentIndexChanged.connect(self.input_data_changes)
+            self.dlg.lineEditOutputLayerName.textChanged.connect(self.input_data_changes)
+            self.dlg.lineEditFeatureName.textChanged.connect(self.input_data_changes)
 
         # show the dialog
         self.dlg.show()
