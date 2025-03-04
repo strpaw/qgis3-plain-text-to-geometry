@@ -22,6 +22,7 @@
  ***************************************************************************/
 """
 import os.path
+import re
 
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
