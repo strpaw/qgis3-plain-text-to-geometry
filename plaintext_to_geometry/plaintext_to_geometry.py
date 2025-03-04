@@ -337,7 +337,7 @@ class PlainTextToGeometry:
         param layer: QgsVectorLayer
         return: str, example Point., LineString, Polygon
         """
-        return QgsWkbTypes.displayString(int(layer.wkbType()))
+        return QgsWkbTypes.displayString(layer.wkbType())
 
     def not_geometry_type(self, layer, geometry_type):
         """ Return true if layer geometry type is different than passed by geometry_type).
