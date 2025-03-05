@@ -21,18 +21,45 @@
  *                                                                         *
  ***************************************************************************/
 """
+import os.path
+import re
+
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox, QTableWidget, QTableWidgetItem
-from qgis.core import *
+from qgis.core import (
+    QgsFeature,
+    QgsField,
+    QgsGeometry,
+    QgsMapLayer,
+    QgsPointXY,
+    QgsProject,
+    QgsWkbTypes,
+    QgsVectorLayer
+)
 
 # Initialize Qt resources from file resources.py
-from .resources import *
+from .resources import *  # pylint: disable=unused-wildcard-import, wildcard-import
 # Import the code for the dialog
 from .plaintext_to_geometry_dialog import PlainTextToGeometryDialog
-import os.path
-from .aviation_gis_toolkit.coordinate_extraction import *
-from .aviation_gis_toolkit.coordinate import *
+
+from .aviation_gis_toolkit.const import AT_LATITUDE, AT_LONGITUDE
+from .aviation_gis_toolkit.coordinate_extraction import (
+    COORD_PAIR_SEP_NONE,
+    COORD_PAIR_SEP_SPACE,
+    COORD_PAIR_SEP_HYPHEN,
+    COORD_PAIR_SEP_SLASH,
+    COORD_PAIR_SEP_BACKSLASH,
+    DMSH_COMP,
+    HDMS_COMP,
+    DMSH_SEP,
+    HDMS_SEP,
+    SEQUENCE_LON_LAT,
+    SEQUENCE_LAT_LON,
+    CoordinatePairExtraction
+)
+from .aviation_gis_toolkit.coordinate import Coordinate
+
 
 coord_sequence = {
     1: SEQUENCE_LAT_LON,
@@ -80,7 +107,7 @@ class PlainTextToGeometry:
         locale_path = os.path.join(
             self.plugin_dir,
             'i18n',
-            'PlainTextToGeometry_{}.qm'.format(locale))
+            f'PlainTextToGeometry_{locale}.qm')
 
         if os.path.exists(locale_path):
             self.translator = QTranslator()
@@ -89,7 +116,7 @@ class PlainTextToGeometry:
 
         # Declare instance attributes
         self.actions = []
-        self.menu = self.tr(u'&PlainTextToGeometry')
+        self.menu = self.tr('&PlainTextToGeometry')
 
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
@@ -110,7 +137,6 @@ class PlainTextToGeometry:
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('PlainTextToGeometry', message)
 
-
     def add_action(
         self,
         icon_path,
@@ -121,7 +147,8 @@ class PlainTextToGeometry:
         add_to_toolbar=True,
         status_tip=None,
         whats_this=None,
-        parent=None):
+        parent=None
+    ):
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -185,35 +212,36 @@ class PlainTextToGeometry:
 
         return action
 
-    def initGui(self):
+    def initGui(self):  # pylint: disable=invalid-name
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
         icon_path = ':/plugins/plaintext_to_geometry/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'PlainTextToGeometry'),
+            text=self.tr('PlainTextToGeometry'),
             callback=self.run,
             parent=self.iface.mainWindow())
 
         # will be set False in run()
         self.first_start = True
 
-
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
             self.iface.removePluginMenu(
-                self.tr(u'&PlainTextToGeometry'),
+                self.tr('&PlainTextToGeometry'),
                 action)
             self.iface.removeToolBarIcon(action)
 
     def clear_coordinate_format_setting(self):
+        """Set coordinate pair format definition to default settings"""
         self.dlg.comboBoxCoordinatesSequence.setCurrentIndex(0)
         self.dlg.comboBoxCoordinatesSeparator.setCurrentIndex(0)
         self.dlg.comboBoxCoordinatesFormat.setCurrentIndex(0)
         self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
 
     def clear_coordinate_list(self):
+        """Remove coordinates from coordinate list widget"""
         self.dlg.tableWidgetCoordinates.setRowCount(0)
 
     def clear_extracted_coordinates(self):
@@ -230,6 +258,11 @@ class PlainTextToGeometry:
             self.clear_extracted_coordinates()
 
     def clear_plugin_form(self):
+        """Set plugin widgets to initial state such as:
+        - coordinate pair format is not defined
+        - coordinate list is empty
+        - plain text is empty
+        """
         self.clear_coordinate_format_setting()
         self.dlg.lineEditOutputLayerName.clear()
         self.dlg.comboBoxOutputGeometryType.setCurrentIndex(0)
@@ -238,6 +271,7 @@ class PlainTextToGeometry:
         self.clear_coordinate_list()
 
     def set_coordinate_pair_format(self):
+        """Get coordinate pair format from GUI"""
         if (self.dlg.comboBoxCoordinatesSequence.currentIndex() >= 1 and
                 self.dlg.comboBoxCoordinatesSeparator.currentIndex() >= 1 and
                 self.dlg.comboBoxCoordinatesFormat.currentIndex() >= 1):
@@ -256,18 +290,22 @@ class PlainTextToGeometry:
             self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
 
     def set_coordinate_extractor(self):
+        """Initiate CoordinatePairExtraction instance based on the coordinate pair format settings"""
         self.coordinate_extractor = CoordinatePairExtraction(self.coordinates_pair_format['sequence'],
                                                              self.coordinates_pair_format["coordinate_format"],
                                                              self.coordinates_pair_format['separator'])
 
     def show_sample_coordinate_format(self):
+        """Display example of coordinate pair based on the on the coordinate pair format settings"""
         example_coordinates = self.coordinate_extractor.get_coordinates_pair_example()
         self.dlg.labelCoordinatesExample.setText(example_coordinates)
 
     def get_plain_text(self):
+        """Get plaint text from GUI"""
         return self.dlg.textEditPlainText.toPlainText()
 
     def set_geometry_type(self):
+        """Get geometry based on the GUI settings"""
         geometry_type = self.dlg.comboBoxOutputGeometryType.currentText()
         if geometry_type == 'Line':
             geometry_type += 'String'
@@ -300,7 +338,7 @@ class PlainTextToGeometry:
         param layer: QgsVectorLayer
         return: str, example Point., LineString, Polygon
         """
-        return QgsWkbTypes.displayString(int(layer.wkbType()))
+        return QgsWkbTypes.displayString(layer.wkbType())
 
     def not_geometry_type(self, layer, geometry_type):
         """ Return true if layer geometry type is different than passed by geometry_type).
@@ -342,7 +380,7 @@ class PlainTextToGeometry:
         param layer_name: str
         return: QgsVectorLayer
         """
-        layer = QgsVectorLayer('{}?crs=epsg:4326'.format(self.geometry_type), layer_name, 'memory')
+        layer = QgsVectorLayer(f'{self.geometry_type}?crs=epsg:4326', layer_name, 'memory')
         provider = layer.dataProvider()
         layer.startEditing()
         provider.addAttributes([QgsField("FEAT_NAME", QVariant.String, len=100)])
@@ -362,8 +400,8 @@ class PlainTextToGeometry:
         if coordinates:
             text = self.dlg.textEditPlainText.toHtml()
             for c1, c2 in coordinates:
-                coord_pair = '{}{}{}'.format(c1, self.coordinates_pair_format["separator"], c2)
-                text = re.sub(coord_pair, '<span style="color:green;">{}</span>'.format(coord_pair), text)
+                coord_pair = f'{c1}{self.coordinates_pair_format["separator"]}{c2}'
+                text = re.sub(coord_pair, f'<span style="color:green;">{coord_pair}</span>', text)
 
             self.dlg.textEditPlainText.setHtml(text)
 
@@ -418,7 +456,7 @@ class PlainTextToGeometry:
         point_nr = 0
         for point in points:
             point_nr += 1
-            point_name = '{}_{}'.format(self.dlg.lineEditFeatureName.text().strip(), point_nr)
+            point_name = f'{self.dlg.lineEditFeatureName.text().strip()}_{point_nr}'
             point_geom = QgsGeometry.fromPointXY(point)
             feat.setGeometry(point_geom)
             feat.setAttributes([point_name])
@@ -457,18 +495,24 @@ class PlainTextToGeometry:
         err_msg = ''
         if not self.coordinates_pair_format:
             err_msg += 'Set coordinate format!\n'
+            return False
         if not self.dlg.lineEditOutputLayerName.text().strip():
             err_msg += 'Output layer name is required!\n'
+            return False
         if not self.dlg.lineEditFeatureName.text().strip():
             err_msg += 'Point(s) prefix, line, polygon name is required!\n'
+            return False
         if not self.get_plain_text():
             err_msg += 'Plain text is required!\n'
+            return False
         if err_msg:
             QMessageBox.critical(QWidget(), "Message", err_msg)
-        else:
-            return True
+            return False
+
+        return True
 
     def plain_text_to_geometry(self):
+        """Extract coordinates from plain text"""
         self.coordinates_extracted = False
         if self.is_required_input_plugin_form():
             self.set_geometry_type()
@@ -478,7 +522,11 @@ class PlainTextToGeometry:
                 if layer_count == 1:
                     self.output_layer = layers[0]
                 else:
-                    QMessageBox.critical(QWidget(), "Message", "{} matching layers with name {}".format(layer_count, self.dlg.lineEditOutputLayerName.text().strip()))
+                    QMessageBox.critical(
+                        QWidget(),
+                        "Message",
+                        f"{layer_count} matching layers with name {self.dlg.lineEditOutputLayerName.text().strip()}"
+                    )
                     self.output_layer = None
             else:
                 self.output_layer = self.create_new_memory_layer(self.dlg.lineEditOutputLayerName.text().strip())
@@ -499,7 +547,7 @@ class PlainTextToGeometry:
 
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
-        if self.first_start == True:
+        if self.first_start:
             self.first_start = False
             self.dlg = PlainTextToGeometryDialog()
             self.dlg.comboBoxCoordinatesSequence.currentIndexChanged.connect(self.set_coordinate_pair_format)
