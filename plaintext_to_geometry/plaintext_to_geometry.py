@@ -59,6 +59,7 @@ from .aviation_gis_toolkit.coordinate_extraction import (
     CoordinatePairExtraction
 )
 from .aviation_gis_toolkit.coordinate import Coordinate
+from .exceptions import FormValidationException
 
 
 coord_sequence = {
@@ -272,9 +273,7 @@ class PlainTextToGeometry:
 
     def set_coordinate_pair_format(self):
         """Get coordinate pair format from GUI"""
-        if (self.dlg.comboBoxCoordinatesSequence.currentIndex() >= 1 and
-                self.dlg.comboBoxCoordinatesSeparator.currentIndex() >= 1 and
-                self.dlg.comboBoxCoordinatesFormat.currentIndex() >= 1):
+        if self.dlg.is_coordinate_format_set():
             self.coordinates_pair_format['sequence'] = coord_sequence[self.dlg.comboBoxCoordinatesSequence.currentIndex()]
             self.coordinates_pair_format['coordinate_format'] = coord_format[
                 self.dlg.comboBoxCoordinatesFormat.currentIndex()]
@@ -490,31 +489,14 @@ class PlainTextToGeometry:
             self.iface.mapCanvas().setExtent(self.output_layer.extent())
             self.iface.mapCanvas().refresh()
 
-    def is_required_input_plugin_form(self):
-        """ Check if required data such as: coordinate formats defined, plain text etc. is entered in plugin form. """
-        err_msg = ''
-        if not self.coordinates_pair_format:
-            err_msg += 'Set coordinate format!\n'
-            return False
-        if not self.dlg.lineEditOutputLayerName.text().strip():
-            err_msg += 'Output layer name is required!\n'
-            return False
-        if not self.dlg.lineEditFeatureName.text().strip():
-            err_msg += 'Point(s) prefix, line, polygon name is required!\n'
-            return False
-        if not self.get_plain_text():
-            err_msg += 'Plain text is required!\n'
-            return False
-        if err_msg:
-            QMessageBox.critical(QWidget(), "Message", err_msg)
-            return False
-
-        return True
-
     def plain_text_to_geometry(self):
         """Extract coordinates from plain text"""
-        self.coordinates_extracted = False
-        if self.is_required_input_plugin_form():
+        try:
+            self.dlg.validate()
+        except FormValidationException as e:
+            QMessageBox.critical(QWidget(), "Message", str(e))
+        else:
+            self.coordinates_extracted = False
             self.set_geometry_type()
             layers = self.get_matching_layers_from_map(self.dlg.lineEditOutputLayerName.text().strip())
             if layers:
