@@ -26,15 +26,13 @@ import re
 
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox, QTableWidget, QTableWidgetItem
+from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox, QTableWidgetItem
 from qgis.core import (
     QgsFeature,
     QgsField,
     QgsGeometry,
-    QgsMapLayer,
     QgsPointXY,
     QgsProject,
-    QgsWkbTypes,
     QgsVectorLayer
 )
 
@@ -60,7 +58,12 @@ from .aviation_gis_toolkit.coordinate_extraction import (
 )
 from .aviation_gis_toolkit.coordinate import Coordinate
 from .exceptions import FormValidationException
-
+from .layer_utils import (
+    geometry_type_as_string,
+    get_vector_layers_by_name,
+    not_memory_layer,
+    not_geometry_type
+)
 
 coord_sequence = {
     1: SEQUENCE_LAT_LON,
@@ -286,43 +289,6 @@ class PlainTextToGeometry:
             geometry_type += 'String'
         self.geometry_type = geometry_type
 
-    @staticmethod
-    def get_vector_layers_by_name(layer_name: str) -> list[QgsVectorLayer]:
-        """ Return list of vector layers with given name.
-        param layer_name: str
-        return: list -> QgsVectorLayer
-        """
-        vector_layers = []
-        layers = QgsProject.instance().mapLayersByName(layer_name)
-        for layer in layers:
-            if layer.type() == QgsMapLayer.VectorLayer:
-                vector_layers.append(layer)
-        return vector_layers
-
-    @staticmethod
-    def not_memory_layer(layer: QgsVectorLayer) -> bool:
-        """ Return true if layer is not memory (provider data type is other than memory).
-        param layer_name: str
-        return: bool
-        """
-        return bool('memory' != layer.providerType())
-
-    @staticmethod
-    def geometry_type_as_string(layer: QgsVectorLayer) -> str:
-        """ Return string representation of the layer geometry type.
-        param layer: QgsVectorLayer
-        return: str, example Point., LineString, Polygon
-        """
-        return QgsWkbTypes.displayString(layer.wkbType())
-
-    def not_geometry_type(self, layer: QgsVectorLayer, geometry_type: str) -> bool:
-        """ Return true if layer geometry type is different than passed by geometry_type).
-        param layer: QgsVectorLayer
-        param geometry_type: str, example: Point, LineString, Polygon
-        return: bool
-        """
-        return bool(geometry_type != self.geometry_type_as_string(layer))
-
     def get_potential_plaintext_layers(self, layers) -> list[QgsVectorLayer]:
         """ Return list of QgsVectorLayer that match plugin PlainTextToGeometry output layer:
             - layer is memory type
@@ -332,9 +298,9 @@ class PlainTextToGeometry:
         """
         layer_candidates = []
         for layer in layers:
-            if self.not_memory_layer(layer):
+            if not_memory_layer(layer):
                 continue
-            if self.not_geometry_type(layer, self.geometry_type):
+            if not_geometry_type(layer, self.geometry_type):
                 continue
             layer_candidates.append(layer)
         return layer_candidates
@@ -345,7 +311,7 @@ class PlainTextToGeometry:
         param layer_name: str
         return: list -> QgsVectorLayer
         """
-        vector_layers = self.get_vector_layers_by_name(layer_name)
+        vector_layers = get_vector_layers_by_name(layer_name)
         if vector_layers:
             candidate_layers = self.get_potential_plaintext_layers(vector_layers)
             return candidate_layers
