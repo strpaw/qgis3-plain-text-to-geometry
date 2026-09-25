@@ -46,6 +46,22 @@ class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
 
+    def reset(self) -> None:
+        """Set plugin widgets to initial state such as:
+        - coordinate pair format is not defined
+        - coordinate list is empty
+        - plain text is empty
+        """
+        self.comboBoxCoordinatesSequence.setCurrentIndex(0)
+        self.comboBoxCoordinatesSeparator.setCurrentIndex(0)
+        self.comboBoxCoordinatesFormat.setCurrentIndex(0)
+        self.labelCoordinatesExample.setText('Define coordinate format to see example')
+        self.lineEditOutputLayerName.clear()
+        self.comboBoxOutputGeometryType.setCurrentIndex(0)
+        self.lineEditFeatureName.clear()
+        self.textEditPlainText.clear()
+        self.tableWidgetCoordinates.setRowCount(0)
+
     def is_coordinate_format_set(self) -> bool:
         """Check whether all coordinate format options have been selected.
 

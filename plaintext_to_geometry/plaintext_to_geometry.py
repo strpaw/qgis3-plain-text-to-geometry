@@ -234,17 +234,6 @@ class PlainTextToGeometry:
                 action)
             self.iface.removeToolBarIcon(action)
 
-    def clear_coordinate_format_setting(self) -> None:
-        """Set coordinate pair format definition to default settings"""
-        self.dlg.comboBoxCoordinatesSequence.setCurrentIndex(0)
-        self.dlg.comboBoxCoordinatesSeparator.setCurrentIndex(0)
-        self.dlg.comboBoxCoordinatesFormat.setCurrentIndex(0)
-        self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
-
-    def clear_coordinate_list(self) -> None:
-        """Remove coordinates from coordinate list widget"""
-        self.dlg.tableWidgetCoordinates.setRowCount(0)
-
     def clear_extracted_coordinates(self) -> None:
         """ Clear marking for extracted coordinates and reset coordinate list. """
         self.coordinates_extracted = False
@@ -257,19 +246,6 @@ class PlainTextToGeometry:
             - geometry type changes """
         if self.coordinates_extracted:
             self.clear_extracted_coordinates()
-
-    def clear_plugin_form(self) -> None:
-        """Set plugin widgets to initial state such as:
-        - coordinate pair format is not defined
-        - coordinate list is empty
-        - plain text is empty
-        """
-        self.clear_coordinate_format_setting()
-        self.dlg.lineEditOutputLayerName.clear()
-        self.dlg.comboBoxOutputGeometryType.setCurrentIndex(0)
-        self.dlg.lineEditFeatureName.clear()
-        self.dlg.textEditPlainText.clear()
-        self.clear_coordinate_list()
 
     def set_coordinate_pair_format(self) -> None:
         """Get coordinate pair format from GUI"""
@@ -544,7 +520,7 @@ class PlainTextToGeometry:
 
         # show the dialog
         self.dlg.show()
-        self.clear_plugin_form()
+        self.dlg.reset()
         # Run the dialog event loop
         result = self.dlg.exec_()
         # See if OK was pressed
