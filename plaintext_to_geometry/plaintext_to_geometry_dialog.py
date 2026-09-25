@@ -36,7 +36,7 @@ FORM_CLASS, _ = uic.loadUiType(os.path.join(
 
 
 class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None) -> None:
         """Constructor."""
         super(PlainTextToGeometryDialog, self).__init__(parent)
         # Set up the user interface from Designer through FORM_CLASS.

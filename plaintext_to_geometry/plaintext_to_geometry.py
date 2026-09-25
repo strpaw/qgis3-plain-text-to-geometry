@@ -86,7 +86,7 @@ coord_format = {
 class PlainTextToGeometry:
     """QGIS Plugin Implementation."""
 
-    def __init__(self, iface):
+    def __init__(self, iface) -> None:
         """Constructor.
 
         :param iface: An interface instance that will be passed to this class
@@ -124,7 +124,7 @@ class PlainTextToGeometry:
         self.first_start = None
 
     # noinspection PyMethodMayBeStatic
-    def tr(self, message):
+    def tr(self, message) -> str:
         """Get the translation for a string using Qt translation API.
 
         We implement this ourselves since we do not inherit QObject.
@@ -149,7 +149,7 @@ class PlainTextToGeometry:
         status_tip=None,
         whats_this=None,
         parent=None
-    ):
+    ) -> QAction:
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -213,7 +213,7 @@ class PlainTextToGeometry:
 
         return action
 
-    def initGui(self):  # pylint: disable=invalid-name
+    def initGui(self) -> None:  # pylint: disable=invalid-name
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
         icon_path = ':/plugins/plaintext_to_geometry/icon.png'
@@ -226,7 +226,7 @@ class PlainTextToGeometry:
         # will be set False in run()
         self.first_start = True
 
-    def unload(self):
+    def unload(self) -> None:
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
             self.iface.removePluginMenu(
@@ -234,31 +234,31 @@ class PlainTextToGeometry:
                 action)
             self.iface.removeToolBarIcon(action)
 
-    def clear_coordinate_format_setting(self):
+    def clear_coordinate_format_setting(self) -> None:
         """Set coordinate pair format definition to default settings"""
         self.dlg.comboBoxCoordinatesSequence.setCurrentIndex(0)
         self.dlg.comboBoxCoordinatesSeparator.setCurrentIndex(0)
         self.dlg.comboBoxCoordinatesFormat.setCurrentIndex(0)
         self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
 
-    def clear_coordinate_list(self):
+    def clear_coordinate_list(self) -> None:
         """Remove coordinates from coordinate list widget"""
         self.dlg.tableWidgetCoordinates.setRowCount(0)
 
-    def clear_extracted_coordinates(self):
+    def clear_extracted_coordinates(self) -> None:
         """ Clear marking for extracted coordinates and reset coordinate list. """
         self.coordinates_extracted = False
         self.dlg.tableWidgetCoordinates.setRowCount(0)
         self.clear_coordinates_marking()
 
-    def input_data_changes(self):
+    def input_data_changes(self) -> None:
         """ Clear marking for extracted coordinates and reset coordinate list in case:
             - plain text is edited
             - geometry type changes """
         if self.coordinates_extracted:
             self.clear_extracted_coordinates()
 
-    def clear_plugin_form(self):
+    def clear_plugin_form(self) -> None:
         """Set plugin widgets to initial state such as:
         - coordinate pair format is not defined
         - coordinate list is empty
@@ -271,7 +271,7 @@ class PlainTextToGeometry:
         self.dlg.textEditPlainText.clear()
         self.clear_coordinate_list()
 
-    def set_coordinate_pair_format(self):
+    def set_coordinate_pair_format(self) -> None:
         """Get coordinate pair format from GUI"""
         if self.dlg.is_coordinate_format_set():
             self.coordinates_pair_format['sequence'] = coord_sequence[self.dlg.comboBoxCoordinatesSequence.currentIndex()]
@@ -288,22 +288,22 @@ class PlainTextToGeometry:
             self.clear_extracted_coordinates()
             self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
 
-    def set_coordinate_extractor(self):
+    def set_coordinate_extractor(self) -> None:
         """Initiate CoordinatePairExtraction instance based on the coordinate pair format settings"""
         self.coordinate_extractor = CoordinatePairExtraction(self.coordinates_pair_format['sequence'],
                                                              self.coordinates_pair_format["coordinate_format"],
                                                              self.coordinates_pair_format['separator'])
 
-    def show_sample_coordinate_format(self):
+    def show_sample_coordinate_format(self) -> None:
         """Display example of coordinate pair based on the on the coordinate pair format settings"""
         example_coordinates = self.coordinate_extractor.get_coordinates_pair_example()
         self.dlg.labelCoordinatesExample.setText(example_coordinates)
 
-    def get_plain_text(self):
+    def get_plain_text(self) -> str:
         """Get plaint text from GUI"""
         return self.dlg.textEditPlainText.toPlainText()
 
-    def set_geometry_type(self):
+    def set_geometry_type(self) -> None:
         """Get geometry based on the GUI settings"""
         geometry_type = self.dlg.comboBoxOutputGeometryType.currentText()
         if geometry_type == 'Line':
@@ -311,7 +311,7 @@ class PlainTextToGeometry:
         self.geometry_type = geometry_type
 
     @staticmethod
-    def get_vector_layers_by_name(layer_name):
+    def get_vector_layers_by_name(layer_name: str) -> list[QgsVectorLayer]:
         """ Return list of vector layers with given name.
         param layer_name: str
         return: list -> QgsVectorLayer
@@ -324,7 +324,7 @@ class PlainTextToGeometry:
         return vector_layers
 
     @staticmethod
-    def not_memory_layer(layer):
+    def not_memory_layer(layer: QgsVectorLayer) -> bool:
         """ Return true if layer is not memory (provider data type is other than memory).
         param layer_name: str
         return: bool
@@ -332,14 +332,14 @@ class PlainTextToGeometry:
         return bool('memory' != layer.providerType())
 
     @staticmethod
-    def geometry_type_as_string(layer):
+    def geometry_type_as_string(layer: QgsVectorLayer) -> str:
         """ Return string representation of the layer geometry type.
         param layer: QgsVectorLayer
         return: str, example Point., LineString, Polygon
         """
         return QgsWkbTypes.displayString(layer.wkbType())
 
-    def not_geometry_type(self, layer, geometry_type):
+    def not_geometry_type(self, layer: QgsVectorLayer, geometry_type: str) -> bool:
         """ Return true if layer geometry type is different than passed by geometry_type).
         param layer: QgsVectorLayer
         param geometry_type: str, example: Point, LineString, Polygon
@@ -347,7 +347,7 @@ class PlainTextToGeometry:
         """
         return bool(geometry_type != self.geometry_type_as_string(layer))
 
-    def get_potential_plaintext_layers(self, layers):
+    def get_potential_plaintext_layers(self, layers) -> list[QgsVectorLayer]:
         """ Return list of QgsVectorLayer that match plugin PlainTextToGeometry output layer:
             - layer is memory type
             - geometry type is the same as Geometry type set by plugin
@@ -363,7 +363,7 @@ class PlainTextToGeometry:
             layer_candidates.append(layer)
         return layer_candidates
 
-    def get_matching_layers_from_map(self, layer_name):
+    def get_matching_layers_from_map(self, layer_name: str) -> list[QgsVectorLayer] | None:
         """ Check layers in Layer (TOC) in current Qgs Project and return those layers that match
         plugin PlainTextToGeometry output layer.
         param layer_name: str
@@ -374,7 +374,7 @@ class PlainTextToGeometry:
             candidate_layers = self.get_potential_plaintext_layers(vector_layers)
             return candidate_layers
 
-    def create_new_memory_layer(self, layer_name):
+    def create_new_memory_layer(self, layer_name: str) -> QgsVectorLayer:
         """ Create memory layer with geometry type assigned by PlainTextToGeometry plugin.
         param layer_name: str
         return: QgsVectorLayer
@@ -387,12 +387,12 @@ class PlainTextToGeometry:
         QgsProject.instance().addMapLayer(layer)
         return layer
 
-    def get_coordinates_from_plain_text(self):
+    def get_coordinates_from_plain_text(self) -> list[tuple[str, str]]:
         plain_text = self.dlg.textEditPlainText.toHtml()
         coordinates = self.coordinate_extractor.extract_coordinates(plain_text)
         return coordinates
 
-    def mark_coordinates(self, coordinates):
+    def mark_coordinates(self, coordinates: list[tuple[str, str]]) -> None:
         """ Mark extracted coordinates in plain text - set the color to green.
         param coordinates: list, list of extracted coordinates
         """
@@ -404,20 +404,20 @@ class PlainTextToGeometry:
 
             self.dlg.textEditPlainText.setHtml(text)
 
-    def clear_coordinates_marking(self):
+    def clear_coordinates_marking(self) -> None:
         """ Clear green color for extracted coordinates in plain text. """
         html = self.dlg.textEditPlainText.toHtml()
         html = html.replace('<span style=" color:#008000;">', '')
         html = html.replace('</span>', '')
         self.dlg.textEditPlainText.setHtml(html)
 
-    def insert_coordinates_to_list(self, lon, lat):
+    def insert_coordinates_to_list(self, lon: str, lat: str) -> None:
         row_pos = self.dlg.tableWidgetCoordinates.rowCount()
         self.dlg.tableWidgetCoordinates.insertRow(row_pos)
         self.dlg.tableWidgetCoordinates.setItem(row_pos, 0, QTableWidgetItem(lon))
         self.dlg.tableWidgetCoordinates.setItem(row_pos, 1, QTableWidgetItem(lat))
 
-    def fill_in_coordinate_list(self, coordinate_list):
+    def fill_in_coordinate_list(self, coordinate_list) -> None:
         self.dlg.tableWidgetCoordinates.setRowCount(0)
         if self.coordinate_extractor.coord_sequence == SEQUENCE_LON_LAT:
             for lon, lat in coordinate_list:
@@ -426,7 +426,7 @@ class PlainTextToGeometry:
             for lat, lon in coordinate_list:
                 self.insert_coordinates_to_list(lon, lat)
 
-    def get_qgspoints(self):
+    def get_qgspoints(self) -> list[QgsPointXY]:
         """ Create list of QgsPoints based on extracted coordinates.
         return: points: list of QGsPoint
         """
@@ -445,7 +445,7 @@ class PlainTextToGeometry:
 
         return points
 
-    def add_points(self, points):
+    def add_points(self, points: list[QgsPointXY]) -> None:
         """ Add point features to output layer.
         param points: list of QGsPoint
         """
@@ -465,7 +465,7 @@ class PlainTextToGeometry:
         self.iface.mapCanvas().setExtent(self.output_layer.extent())
         self.iface.mapCanvas().refresh()
 
-    def add_feature(self, points):
+    def add_feature(self, points: list[QgsPointXY]) -> None:
         """ Add feature (points, line or polygon) to  output layer based on extracted coordinates.
         param points: list of QGsPoint
         """
@@ -489,7 +489,7 @@ class PlainTextToGeometry:
             self.iface.mapCanvas().setExtent(self.output_layer.extent())
             self.iface.mapCanvas().refresh()
 
-    def plain_text_to_geometry(self):
+    def plain_text_to_geometry(self) -> None:
         """Extract coordinates from plain text"""
         try:
             self.dlg.validate()
@@ -524,7 +524,7 @@ class PlainTextToGeometry:
             else:
                 self.clear_extracted_coordinates()
 
-    def run(self):
+    def run(self) -> None:
         """Run method that performs all the real work"""
 
         # Create the dialog with elements (after translation) and keep reference
