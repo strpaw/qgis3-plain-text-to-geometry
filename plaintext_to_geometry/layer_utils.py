@@ -1,45 +1,39 @@
 """Utility functions for working with QGIS vector layers."""
 
 from qgis.core import (
-    QgsMapLayer,
     QgsProject,
     QgsVectorLayer,
     QgsWkbTypes
 )
 
-def get_vector_layers_by_name(layer_name: str) -> list[QgsVectorLayer]:
-    """ Return list of vector layers with given name.
-    param layer_name: str
-    return: list -> QgsVectorLayer
+
+def find_vector_layers(layer_name: str) -> list[QgsVectorLayer]:
+    """Return all vector layers with the given name.
+
+    param layer_name: Name of the vector layers to find.
+    return: A list of matching QgsVectorLayer instances. Returns an empty list if no matching vector layers are found.
     """
-    vector_layers = []
     layers = QgsProject.instance().mapLayersByName(layer_name)
-    for layer in layers:
-        if layer.type() == QgsMapLayer.VectorLayer:
-            vector_layers.append(layer)
-    return vector_layers
+    return [layer for layer in layers if isinstance(layer, QgsVectorLayer)]
 
 
-def not_memory_layer(layer: QgsVectorLayer) -> bool:
-    """ Return true if layer is not memory (provider data type is other than memory).
-    param layer_name: str
-    return: bool
+def is_memory_layer(layer: QgsVectorLayer) -> bool:
+    """Return True if the layer uses the memory provider.
+
+    param layer: layer to be checked.
+    return: Ture if layer is memory provider, False otherwise.
     """
-    return bool('memory' != layer.providerType())
+    return layer.providerType() == "memory"
 
 
-def geometry_type_as_string(layer: QgsVectorLayer) -> str:
-    """ Return string representation of the layer geometry type.
-    param layer: QgsVectorLayer
-    return: str, example Point., LineString, Polygon
+def has_geometry_type(
+    layer: QgsVectorLayer,
+    geometry_type: str,
+) -> bool:
+    """Check if the layer has the specified geometry type.
+
+    :param layer: layer whose geometry type is being checked.
+    :param geometry_type:
+    :return: True if the layer's geometry type matches `geometry_type`, otherwise False.
     """
-    return QgsWkbTypes.displayString(layer.wkbType())
-
-
-def not_geometry_type(layer: QgsVectorLayer, geometry_type: str) -> bool:
-    """ Return true if layer geometry type is different than passed by geometry_type).
-    param layer: QgsVectorLayer
-    param geometry_type: str, example: Point, LineString, Polygon
-    return: bool
-    """
-    return bool(geometry_type != geometry_type_as_string(layer))
+    return QgsWkbTypes.displayString(layer.wkbType()) == geometry_type

@@ -59,10 +59,9 @@ from .aviation_gis_toolkit.coordinate_extraction import (
 from .aviation_gis_toolkit.coordinate import Coordinate
 from .exceptions import FormValidationException
 from .layer_utils import (
-    geometry_type_as_string,
-    get_vector_layers_by_name,
-    not_memory_layer,
-    not_geometry_type
+    find_vector_layers,
+    is_memory_layer,
+    has_geometry_type,
 )
 
 coord_sequence = {
@@ -298,9 +297,9 @@ class PlainTextToGeometry:
         """
         layer_candidates = []
         for layer in layers:
-            if not_memory_layer(layer):
+            if not is_memory_layer(layer):
                 continue
-            if not_geometry_type(layer, self.geometry_type):
+            if not has_geometry_type(layer, self.geometry_type):
                 continue
             layer_candidates.append(layer)
         return layer_candidates
@@ -311,7 +310,7 @@ class PlainTextToGeometry:
         param layer_name: str
         return: list -> QgsVectorLayer
         """
-        vector_layers = get_vector_layers_by_name(layer_name)
+        vector_layers = find_vector_layers(layer_name)
         if vector_layers:
             candidate_layers = self.get_potential_plaintext_layers(vector_layers)
             return candidate_layers
