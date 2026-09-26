@@ -24,15 +24,13 @@
 import os.path
 import re
 
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QVariant
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox, QTableWidgetItem
 from qgis.core import (
     QgsFeature,
-    QgsField,
     QgsGeometry,
     QgsPointXY,
-    QgsProject,
     QgsVectorLayer
 )
 
@@ -59,6 +57,7 @@ from .aviation_gis_toolkit.coordinate_extraction import (
 from .aviation_gis_toolkit.coordinate import Coordinate
 from .exceptions import FormValidationException
 from .layer_utils import (
+    create_output_layer,
     find_vector_layers,
     is_memory_layer,
     has_geometry_type,
@@ -311,19 +310,6 @@ class PlainTextToGeometry:
             candidate_layers = self.get_potential_plaintext_layers(vector_layers)
             return candidate_layers
 
-    def create_new_memory_layer(self, layer_name: str) -> QgsVectorLayer:
-        """ Create memory layer with geometry type assigned by PlainTextToGeometry plugin.
-        param layer_name: str
-        return: QgsVectorLayer
-        """
-        layer = QgsVectorLayer(f'{self.geometry_type}?crs=epsg:4326', layer_name, 'memory')
-        provider = layer.dataProvider()
-        layer.startEditing()
-        provider.addAttributes([QgsField("FEAT_NAME", QVariant.String, len=100)])
-        layer.commitChanges()
-        QgsProject.instance().addMapLayer(layer)
-        return layer
-
     def get_coordinates_from_plain_text(self) -> list[tuple[str, str]]:
         plain_text = self.dlg.textEditPlainText.toHtml()
         coordinates = self.coordinate_extractor.extract_coordinates(plain_text)
@@ -448,7 +434,8 @@ class PlainTextToGeometry:
                     )
                     self.output_layer = None
             else:
-                self.output_layer = self.create_new_memory_layer(self.dlg.lineEditOutputLayerName.text().strip())
+                self.output_layer = create_output_layer(layer_name=self.dlg.lineEditOutputLayerName.text().strip(),
+                                                        geometry_type=self.geometry_type)
             if self.output_layer:
                 self.iface.setActiveLayer(self.output_layer)
 

@@ -1,6 +1,8 @@
 """Utility functions for working with QGIS vector layers."""
 
+from qgis.PyQt.QtCore import QVariant
 from qgis.core import (
+    QgsField,
     QgsProject,
     QgsVectorLayer,
     QgsWkbTypes
@@ -37,3 +39,20 @@ def has_geometry_type(
     :return: True if the layer's geometry type matches `geometry_type`, otherwise False.
     """
     return QgsWkbTypes.displayString(layer.wkbType()) == geometry_type
+
+
+def create_output_layer(layer_name: str,
+                        geometry_type: str) -> QgsVectorLayer:
+    """Create and register an in-memory QGIS vector layer where feature with extracted coordinates will be stored.
+
+    :param layer_name: Name of the output layer.
+    :param geometry_type: QGIS geometry type, such as ``"Point"``, ``"LineString"``, or ``"Polygon"``
+    :return: The newly created and registered ``QgsVectorLayer``.
+    """
+    layer = QgsVectorLayer(f'{geometry_type}?crs=epsg:4326', layer_name, 'memory')
+    provider = layer.dataProvider()
+    layer.startEditing()
+    provider.addAttributes([QgsField("FEAT_NAME", QVariant.String, len=100)])
+    layer.commitChanges()
+    QgsProject.instance().addMapLayer(layer)
+    return layer
