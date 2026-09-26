@@ -69,6 +69,13 @@ class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
         html = html.replace('</span>', '')
         self.textEditPlainText.setHtml(html)
 
+    def get_output_geometry_type(self) -> str:
+        """Return the selected QGIS output layer geometry type."""
+        geometry_type = self.comboBoxOutputGeometryType.currentText()
+        if geometry_type == 'Line':
+            geometry_type += 'String'
+        return geometry_type
+
     def is_coordinate_format_set(self) -> bool:
         """Check whether all coordinate format options have been selected.
 

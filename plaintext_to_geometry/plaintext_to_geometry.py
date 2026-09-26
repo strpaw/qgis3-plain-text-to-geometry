@@ -96,7 +96,6 @@ class PlainTextToGeometry:
         """
         self.coordinates_pair_format = {}
         self.coordinate_extractor = None
-        self.geometry_type = None
         self.output_layer = None
         self.coordinates_extracted = False
         # Save reference to the QGIS interface
@@ -275,13 +274,6 @@ class PlainTextToGeometry:
         example_coordinates = self.coordinate_extractor.get_coordinates_pair_example()
         self.dlg.labelCoordinatesExample.setText(example_coordinates)
 
-    def set_geometry_type(self) -> None:
-        """Get geometry based on the GUI settings"""
-        geometry_type = self.dlg.comboBoxOutputGeometryType.currentText()
-        if geometry_type == 'Line':
-            geometry_type += 'String'
-        self.geometry_type = geometry_type
-
     def get_matching_layers_from_map(self, layer_name: str) -> list[QgsVectorLayer] | None:
         """ Check layers in Layer (TOC) in current Qgs Project and return those layers that match
         plugin PlainTextToGeometry output layer.
@@ -291,7 +283,7 @@ class PlainTextToGeometry:
         vector_layers = find_vector_layers(layer_name)
         if vector_layers:
             candidate_layers = get_potential_output_layers(layers=vector_layers,
-                                                           geometry_type=self.geometry_type)
+                                                           geometry_type=self.dlg.get_output_geometry_type())
             return candidate_layers
 
     def get_coordinates_from_plain_text(self) -> list[tuple[str, str]]:
@@ -369,14 +361,15 @@ class PlainTextToGeometry:
         """ Add feature (points, line or polygon) to  output layer based on extracted coordinates.
         param points: list of QGsPoint
         """
-        if self.geometry_type == 'Point':
+        output_geometry_type = self.dlg.get_output_geometry_type()
+        if output_geometry_type == 'Point':
             self.add_points(points)
         else:
             feat = QgsFeature()
             self.output_layer.startEditing()
             prov = self.output_layer.dataProvider()
 
-            if self.geometry_type == 'LineString':
+            if output_geometry_type == 'LineString':
                 feat_geom = QgsGeometry.fromPolylineXY(points)
             else:  # Polygon
                 feat_geom = QgsGeometry.fromPolygonXY([points])
@@ -397,7 +390,6 @@ class PlainTextToGeometry:
             QMessageBox.critical(QWidget(), "Message", str(e))
         else:
             self.coordinates_extracted = False
-            self.set_geometry_type()
             layers = self.get_matching_layers_from_map(self.dlg.lineEditOutputLayerName.text().strip())
             if layers:
                 layer_count = len(layers)
@@ -412,7 +404,7 @@ class PlainTextToGeometry:
                     self.output_layer = None
             else:
                 self.output_layer = create_output_layer(layer_name=self.dlg.lineEditOutputLayerName.text().strip(),
-                                                        geometry_type=self.geometry_type)
+                                                        geometry_type=self.dlg.get_output_geometry_type())
             if self.output_layer:
                 self.iface.setActiveLayer(self.output_layer)
 
