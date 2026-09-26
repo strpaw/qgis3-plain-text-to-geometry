@@ -277,10 +277,6 @@ class PlainTextToGeometry:
         example_coordinates = self.coordinate_extractor.get_coordinates_pair_example()
         self.dlg.labelCoordinatesExample.setText(example_coordinates)
 
-    def get_plain_text(self) -> str:
-        """Get plaint text from GUI"""
-        return self.dlg.textEditPlainText.toPlainText()
-
     def set_geometry_type(self) -> None:
         """Get geometry based on the GUI settings"""
         geometry_type = self.dlg.comboBoxOutputGeometryType.currentText()
