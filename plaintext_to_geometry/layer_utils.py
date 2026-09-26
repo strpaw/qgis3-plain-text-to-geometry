@@ -56,3 +56,21 @@ def create_output_layer(layer_name: str,
     layer.commitChanges()
     QgsProject.instance().addMapLayer(layer)
     return layer
+
+
+def get_potential_output_layers(
+        layers: list[QgsVectorLayer],
+        geometry_type: str,
+) -> list[QgsVectorLayer]:
+    """Return memory layers matching the specified geometry type.
+
+    :param layers: Layers to filter.
+    :param geometry_type: Expected QGIS geometry type, e.g. ``Point``, ``LineString``, or ``Polygon``.
+    :return: Memory vector layers with the specified geometry type.
+    """
+    return [
+        layer
+        for layer in layers
+        if is_memory_layer(layer)
+           and has_geometry_type(layer, geometry_type)
+    ]

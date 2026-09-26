@@ -59,8 +59,7 @@ from .exceptions import FormValidationException
 from .layer_utils import (
     create_output_layer,
     find_vector_layers,
-    is_memory_layer,
-    has_geometry_type,
+    get_potential_output_layers
 )
 
 coord_sequence = {
@@ -283,22 +282,6 @@ class PlainTextToGeometry:
             geometry_type += 'String'
         self.geometry_type = geometry_type
 
-    def get_potential_plaintext_layers(self, layers) -> list[QgsVectorLayer]:
-        """ Return list of QgsVectorLayer that match plugin PlainTextToGeometry output layer:
-            - layer is memory type
-            - geometry type is the same as Geometry type set by plugin
-        param layers: list -> QgsVectorLayer
-        return: list -> QgsVectorLayer
-        """
-        layer_candidates = []
-        for layer in layers:
-            if not is_memory_layer(layer):
-                continue
-            if not has_geometry_type(layer, self.geometry_type):
-                continue
-            layer_candidates.append(layer)
-        return layer_candidates
-
     def get_matching_layers_from_map(self, layer_name: str) -> list[QgsVectorLayer] | None:
         """ Check layers in Layer (TOC) in current Qgs Project and return those layers that match
         plugin PlainTextToGeometry output layer.
@@ -307,7 +290,8 @@ class PlainTextToGeometry:
         """
         vector_layers = find_vector_layers(layer_name)
         if vector_layers:
-            candidate_layers = self.get_potential_plaintext_layers(vector_layers)
+            candidate_layers = get_potential_output_layers(layers=vector_layers,
+                                                           geometry_type=self.geometry_type)
             return candidate_layers
 
     def get_coordinates_from_plain_text(self) -> list[tuple[str, str]]:
