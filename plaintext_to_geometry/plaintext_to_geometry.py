@@ -238,7 +238,7 @@ class PlainTextToGeometry:
         """ Clear marking for extracted coordinates and reset coordinate list. """
         self.coordinates_extracted = False
         self.dlg.tableWidgetCoordinates.setRowCount(0)
-        self.clear_coordinates_marking()
+        self.dlg.clear_coordinates_marking()
 
     def input_data_changes(self) -> None:
         """ Clear marking for extracted coordinates and reset coordinate list in case:
@@ -310,13 +310,6 @@ class PlainTextToGeometry:
                 text = re.sub(coord_pair, f'<span style="color:green;">{coord_pair}</span>', text)
 
             self.dlg.textEditPlainText.setHtml(text)
-
-    def clear_coordinates_marking(self) -> None:
-        """ Clear green color for extracted coordinates in plain text. """
-        html = self.dlg.textEditPlainText.toHtml()
-        html = html.replace('<span style=" color:#008000;">', '')
-        html = html.replace('</span>', '')
-        self.dlg.textEditPlainText.setHtml(html)
 
     def insert_coordinates_to_list(self, lon: str, lat: str) -> None:
         row_pos = self.dlg.tableWidgetCoordinates.rowCount()

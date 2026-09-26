@@ -62,6 +62,13 @@ class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
         self.textEditPlainText.clear()
         self.tableWidgetCoordinates.setRowCount(0)
 
+    def clear_coordinates_marking(self) -> None:
+        """Remove green highlighting from extracted coordinates."""
+        html = self.textEditPlainText.toHtml()
+        html = html.replace('<span style=" color:#008000;">', '')
+        html = html.replace('</span>', '')
+        self.textEditPlainText.setHtml(html)
+
     def is_coordinate_format_set(self) -> bool:
         """Check whether all coordinate format options have been selected.
 
