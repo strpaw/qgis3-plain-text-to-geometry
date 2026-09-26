@@ -27,13 +27,16 @@ import os
 from qgis.PyQt import uic
 from qgis.PyQt import QtWidgets
 
+from .exceptions import FormValidationException
+
+
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), 'plaintext_to_geometry_dialog_base.ui'))
 
 
 class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None) -> None:
         """Constructor."""
         super(PlainTextToGeometryDialog, self).__init__(parent)
         # Set up the user interface from Designer through FORM_CLASS.
@@ -42,3 +45,75 @@ class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+
+    def reset(self) -> None:
+        """Set plugin widgets to initial state such as:
+        - coordinate pair format is not defined
+        - coordinate list is empty
+        - plain text is empty
+        """
+        self.comboBoxCoordinatesSequence.setCurrentIndex(0)
+        self.comboBoxCoordinatesSeparator.setCurrentIndex(0)
+        self.comboBoxCoordinatesFormat.setCurrentIndex(0)
+        self.labelCoordinatesExample.setText('Define coordinate format to see example')
+        self.lineEditOutputLayerName.clear()
+        self.comboBoxOutputGeometryType.setCurrentIndex(0)
+        self.lineEditFeatureName.clear()
+        self.textEditPlainText.clear()
+        self.tableWidgetCoordinates.setRowCount(0)
+
+    def clear_coordinates_marking(self) -> None:
+        """Remove green highlighting from extracted coordinates."""
+        html = self.textEditPlainText.toHtml()
+        html = html.replace('<span style=" color:#008000;">', '')
+        html = html.replace('</span>', '')
+        self.textEditPlainText.setHtml(html)
+
+    def get_output_geometry_type(self) -> str:
+        """Return the selected QGIS output layer geometry type."""
+        geometry_type = self.comboBoxOutputGeometryType.currentText()
+        if geometry_type == 'Line':
+            geometry_type += 'String'
+        return geometry_type
+
+    def is_coordinate_format_set(self) -> bool:
+        """Check whether all coordinate format options have been selected.
+
+          Returns:
+              bool: True if coordinate sequence, separator, and format are set;
+                  otherwise, False.
+          """
+        return (
+            self.comboBoxCoordinatesSequence.currentIndex() >= 1
+            and self.comboBoxCoordinatesSeparator.currentIndex() >= 1
+            and self.comboBoxCoordinatesFormat.currentIndex() >= 1
+        )
+
+    def validate(self) -> None:
+        """Validate that all required form fields are set.
+
+        Raises:
+            FormValidationException: If one or more required fields are not set.
+                The exception message lists all missing fields.
+        """
+        missing = []
+        line_edit_fields = (
+            (self.lineEditOutputLayerName, "Output layer is required."),
+            (self.lineEditFeatureName, "Feature name is required.")
+        )
+
+        if not self.textEditPlainText.toPlainText():
+            missing.append("Plain text is required.")
+
+        for field, name in line_edit_fields:
+            if not field.text().strip():
+                missing.append(name)
+
+        if not self.is_coordinate_format_set():
+            missing.append("Coordinate format is required.")
+
+        if missing:
+            raise FormValidationException(
+                "The following fields are required:\n\n"
+                + "\n".join(f"• {name}" for name in missing)
+            )
