@@ -55,11 +55,13 @@ from .aviation_gis_toolkit.coordinate_extraction import (
     CoordinatePairExtraction
 )
 from .aviation_gis_toolkit.coordinate import Coordinate
-from .exceptions import FormValidationException
+from .exceptions import FormValidationException, AddingFeaturesException
 from .layer_utils import (
     create_output_layer,
     find_vector_layers,
-    get_potential_output_layers
+    get_potential_output_layers,
+    create_features,
+    add_features_to_layer
 )
 
 coord_sequence = {
@@ -337,48 +339,26 @@ class PlainTextToGeometry:
 
         return points
 
-    def add_points(self, points: list[QgsPointXY]) -> None:
-        """ Add point features to output layer.
-        param points: list of QGsPoint
-        """
-        feat = QgsFeature()
-        self.output_layer.startEditing()
-        prov = self.output_layer.dataProvider()
-        point_nr = 0
-        for point in points:
-            point_nr += 1
-            point_name = f'{self.dlg.lineEditFeatureName.text().strip()}_{point_nr}'
-            point_geom = QgsGeometry.fromPointXY(point)
-            feat.setGeometry(point_geom)
-            feat.setAttributes([point_name])
-            prov.addFeatures([feat])
-        self.output_layer.commitChanges()
-        self.output_layer.updateExtents()
-        self.iface.mapCanvas().setExtent(self.output_layer.extent())
-        self.iface.mapCanvas().refresh()
+    def add_features(self, points: list[QgsPointXY]) -> None:
+        """Create and add features to the output layer.
 
-    def add_feature(self, points: list[QgsPointXY]) -> None:
-        """ Add feature (points, line or polygon) to  output layer based on extracted coordinates.
-        param points: list of QGsPoint
+        :param points: Points used to construct the new features (geometries extracted from plain text).
         """
-        output_geometry_type = self.dlg.get_output_geometry_type()
-        if output_geometry_type == 'Point':
-            self.add_points(points)
+        geometry_type = self.dlg.get_output_geometry_type()
+        feature_name = self.dlg.lineEditFeatureName.text().strip()
+
+        features = create_features(
+            self.output_layer.fields(),
+            geometry_type,
+            points,
+            feature_name,
+        )
+
+        try:
+            add_features_to_layer(self.output_layer, features)
+        except AddingFeaturesException as e:
+            QMessageBox.critical(QWidget(), "Message", str(e))
         else:
-            feat = QgsFeature()
-            self.output_layer.startEditing()
-            prov = self.output_layer.dataProvider()
-
-            if output_geometry_type == 'LineString':
-                feat_geom = QgsGeometry.fromPolylineXY(points)
-            else:  # Polygon
-                feat_geom = QgsGeometry.fromPolygonXY([points])
-
-            feat.setGeometry(feat_geom)
-            feat.setAttributes([self.dlg.lineEditFeatureName.text().strip()])
-            prov.addFeatures([feat])
-            self.output_layer.commitChanges()
-            self.output_layer.updateExtents()
             self.iface.mapCanvas().setExtent(self.output_layer.extent())
             self.iface.mapCanvas().refresh()
 
@@ -412,7 +392,7 @@ class PlainTextToGeometry:
             if coordinates:
                 self.mark_coordinates(coordinates)
                 self.fill_in_coordinate_list(coordinates)
-                self.add_feature(self.get_qgspoints())
+                self.add_features(self.get_qgspoints())
                 self.coordinates_extracted = True
             else:
                 self.clear_extracted_coordinates()

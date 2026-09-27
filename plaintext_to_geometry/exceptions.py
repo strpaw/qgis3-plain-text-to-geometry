@@ -6,3 +6,7 @@ class PlainTextToGeometryException(Exception):
 
 class FormValidationException(PlainTextToGeometryException):
     """Raised when form input is invalid."""
+
+
+class AddingFeaturesException(PlainTextToGeometryException):
+    """Raised when features cannot be added."""
