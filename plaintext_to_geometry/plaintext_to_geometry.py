@@ -362,40 +362,61 @@ class PlainTextToGeometry:
             self.iface.mapCanvas().setExtent(self.output_layer.extent())
             self.iface.mapCanvas().refresh()
 
+    def get_or_create_output_layer(self) -> QgsVectorLayer | None:
+        """Get an existing output layer or create a new one if matching layer name and geometry type not found in
+        Table of Contents."""
+        layer_name = self.dlg.lineEditOutputLayerName.text().strip()
+
+        layers = self.get_matching_layers_from_map(layer_name)
+
+        if not layers:
+            return create_output_layer(
+                layer_name=layer_name,
+                geometry_type=self.dlg.get_output_geometry_type(),
+            )
+
+        if len(layers) > 1:
+            QMessageBox.critical(QWidget(),
+                                 "Message",
+                                 f"{len(layers)} matching layers with name {self.dlg.lineEditOutputLayerName.text().strip()}")
+            return None
+
+        return layers[0]
+
+    def process_coordinates(self, coordinates: list[tuple[str, str]]) -> None:
+        """Display coordinates and add corresponding features.
+
+        :param coordinates: extracted coordinates from plain text.
+        """
+        self.mark_coordinates(coordinates)
+        self.fill_in_coordinate_list(coordinates)
+        self.add_features(self.get_qgspoints())
+
     def plain_text_to_geometry(self) -> None:
         """Extract coordinates from plain text"""
         try:
             self.dlg.validate()
         except FormValidationException as e:
             QMessageBox.critical(QWidget(), "Message", str(e))
-        else:
-            self.coordinates_extracted = False
-            layers = self.get_matching_layers_from_map(self.dlg.lineEditOutputLayerName.text().strip())
-            if layers:
-                layer_count = len(layers)
-                if layer_count == 1:
-                    self.output_layer = layers[0]
-                else:
-                    QMessageBox.critical(
-                        QWidget(),
-                        "Message",
-                        f"{layer_count} matching layers with name {self.dlg.lineEditOutputLayerName.text().strip()}"
-                    )
-                    self.output_layer = None
-            else:
-                self.output_layer = create_output_layer(layer_name=self.dlg.lineEditOutputLayerName.text().strip(),
-                                                        geometry_type=self.dlg.get_output_geometry_type())
-            if self.output_layer:
-                self.iface.setActiveLayer(self.output_layer)
+            return
 
-            coordinates = self.get_coordinates_from_plain_text()
-            if coordinates:
-                self.mark_coordinates(coordinates)
-                self.fill_in_coordinate_list(coordinates)
-                self.add_features(self.get_qgspoints())
-                self.coordinates_extracted = True
-            else:
-                self.clear_extracted_coordinates()
+        self.coordinates_extracted = False
+        self.output_layer = self.get_or_create_output_layer()
+        if not self.output_layer:
+            return
+
+        if not self.output_layer:
+            return
+
+        self.iface.setActiveLayer(self.output_layer)
+
+        coordinates = self.get_coordinates_from_plain_text()
+        if not coordinates:
+            self.clear_extracted_coordinates()
+            self.coordinates_extracted = False
+
+        self.process_coordinates(coordinates)
+        self.coordinates_extracted = True
 
     def run(self) -> None:
         """Run method that performs all the real work"""
