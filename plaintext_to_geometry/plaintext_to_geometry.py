@@ -67,8 +67,7 @@ class PlainTextToGeometry:
             application at run time.
         :type iface: QgsInterface
         """
-        self.coordinates_pair_format = {}
-        self.coordinate_extractor = None
+        self.coordinate_extractor: CoordinatePairExtraction | None = None
         self.output_layer = None
         self.coordinates_extracted = False
         # Save reference to the QGIS interface
@@ -216,7 +215,6 @@ class PlainTextToGeometry:
     def set_coordinate_pair_format(self) -> None:
         """Set the coordinate pair format from GUI selections."""
         if not self.dlg.is_coordinate_format_set():
-            self.coordinates_pair_format = {}
             self.coordinate_extractor = None
             self.dlg.clear_extracted_coordinates()
             self.dlg.labelCoordinatesExample.setText(
@@ -224,20 +222,17 @@ class PlainTextToGeometry:
             )
             return
 
-        self.coordinates_pair_format = {
-            'sequence': self.dlg.comboBoxCoordinatesSequence.currentData(),
-            'coordinate_format': self.dlg.comboBoxCoordinatesFormat.currentData(),
-            'separator': self.dlg.comboBoxCoordinatesSeparator.currentData(),
-        }
         self.set_coordinate_extractor()
         self.dlg.clear_extracted_coordinates()
         self.show_sample_coordinate_format()
 
     def set_coordinate_extractor(self) -> None:
         """Initiate CoordinatePairExtraction instance based on the coordinate pair format settings"""
-        self.coordinate_extractor = CoordinatePairExtraction(self.coordinates_pair_format['sequence'],
-                                                             self.coordinates_pair_format["coordinate_format"],
-                                                             self.coordinates_pair_format['separator'])
+        self.coordinate_extractor = CoordinatePairExtraction(
+            coord_sequence=self.dlg.comboBoxCoordinatesSequence.currentData(),
+            coord_format=self.dlg.comboBoxCoordinatesFormat.currentData(),
+            coord_sep=self.dlg.comboBoxCoordinatesSeparator.currentData(),
+        )
 
     def show_sample_coordinate_format(self) -> None:
         """Display example of coordinate pair based on the on the coordinate pair format settings"""
@@ -268,7 +263,7 @@ class PlainTextToGeometry:
         if coordinates:
             text = self.dlg.textEditPlainText.toHtml()
             for c1, c2 in coordinates:
-                coord_pair = f'{c1}{self.coordinates_pair_format["separator"]}{c2}'
+                coord_pair = f'{c1}{self.coordinate_extractor.coord_sep}{c2}'
                 text = re.sub(coord_pair, f'<span style="color:green;">{coord_pair}</span>', text)
 
             self.dlg.textEditPlainText.setHtml(text)
