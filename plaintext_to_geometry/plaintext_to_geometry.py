@@ -206,25 +206,19 @@ class PlainTextToGeometry:
                 action)
             self.iface.removeToolBarIcon(action)
 
-    def clear_extracted_coordinates(self) -> None:
-        """ Clear marking for extracted coordinates and reset coordinate list. """
-        self.coordinates_extracted = False
-        self.dlg.tableWidgetCoordinates.setRowCount(0)
-        self.dlg.clear_coordinates_marking()
-
     def input_data_changes(self) -> None:
         """ Clear marking for extracted coordinates and reset coordinate list in case:
             - plain text is edited
             - geometry type changes """
         if self.coordinates_extracted:
-            self.clear_extracted_coordinates()
+            self.dlg.clear_extracted_coordinates()
 
     def set_coordinate_pair_format(self) -> None:
         """Set the coordinate pair format from GUI selections."""
         if not self.dlg.is_coordinate_format_set():
             self.coordinates_pair_format = {}
             self.coordinate_extractor = None
-            self.clear_extracted_coordinates()
+            self.dlg.clear_extracted_coordinates()
             self.dlg.labelCoordinatesExample.setText(
                 'Define coordinate format to see example'
             )
@@ -236,7 +230,7 @@ class PlainTextToGeometry:
             'separator': self.dlg.comboBoxCoordinatesSeparator.currentData(),
         }
         self.set_coordinate_extractor()
-        self.clear_extracted_coordinates()
+        self.dlg.clear_extracted_coordinates()
         self.show_sample_coordinate_format()
 
     def set_coordinate_extractor(self) -> None:
@@ -386,7 +380,7 @@ class PlainTextToGeometry:
 
         coordinates = self.get_coordinates_from_plain_text()
         if not coordinates:
-            self.clear_extracted_coordinates()
+            self.dlg.clear_extracted_coordinates()
             self.coordinates_extracted = False
 
         self.process_coordinates(coordinates)

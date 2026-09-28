@@ -27,6 +27,8 @@ import os
 from qgis.PyQt import uic
 from qgis.PyQt import QtWidgets
 
+from PyQt5.QtCore import QSignalBlocker
+
 from .aviation_gis_toolkit.coordinate_extraction import (
     COORD_PAIR_SEP_NONE,
     COORD_PAIR_SEP_SPACE,
@@ -128,12 +130,16 @@ class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
         self.textEditPlainText.clear()
         self.tableWidgetCoordinates.setRowCount(0)
 
-    def clear_coordinates_marking(self) -> None:
-        """Remove green highlighting from extracted coordinates."""
+    def clear_extracted_coordinates(self) -> None:
+        """Clear extracted coordinates and their visual representation."""
+        self.tableWidgetCoordinates.setRowCount(0)
         html = self.textEditPlainText.toHtml()
         html = html.replace('<span style=" color:#008000;">', '')
         html = html.replace('</span>', '')
+        # Prevent setHtml() from triggering text-change signals recursively.
+        self.textEditPlainText.blockSignals(True)
         self.textEditPlainText.setHtml(html)
+        self.textEditPlainText.blockSignals(False)
 
     def get_output_geometry_type(self) -> str:
         """Return the selected QGIS output layer geometry type."""
