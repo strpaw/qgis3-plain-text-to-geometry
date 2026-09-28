@@ -27,6 +27,19 @@ import os
 from qgis.PyQt import uic
 from qgis.PyQt import QtWidgets
 
+from .aviation_gis_toolkit.coordinate_extraction import (
+    COORD_PAIR_SEP_NONE,
+    COORD_PAIR_SEP_SPACE,
+    COORD_PAIR_SEP_HYPHEN,
+    COORD_PAIR_SEP_SLASH,
+    COORD_PAIR_SEP_BACKSLASH,
+    DMSH_COMP,
+    HDMS_COMP,
+    DMSH_SEP,
+    HDMS_SEP,
+    SEQUENCE_LON_LAT,
+    SEQUENCE_LAT_LON,
+)
 from .exceptions import FormValidationException
 
 
@@ -45,6 +58,59 @@ class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
+        self._setup_coordinate_format_combos()
+
+    def _setup_coordinate_format_combos(self):
+        """Initialize coordinate format combo boxes with supported options."""
+        self.comboBoxCoordinatesSequence.clear()
+        self.comboBoxCoordinatesSequence.addItem(
+            "LAT LON",
+            SEQUENCE_LAT_LON,
+        )
+        self.comboBoxCoordinatesSequence.addItem(
+            "LON LAT",
+            SEQUENCE_LON_LAT,
+        )
+
+        self.comboBoxCoordinatesSeparator.clear()
+        self.comboBoxCoordinatesSeparator.addItem(
+            "(not separated)",
+            COORD_PAIR_SEP_NONE,
+        )
+        self.comboBoxCoordinatesSeparator.addItem(
+            "(Space)",
+            COORD_PAIR_SEP_SPACE,
+        )
+        self.comboBoxCoordinatesSeparator.addItem(
+            "-(Hyphen)",
+            COORD_PAIR_SEP_HYPHEN,
+        )
+        self.comboBoxCoordinatesSeparator.addItem(
+            "/(Slash)",
+            COORD_PAIR_SEP_SLASH,
+        )
+        self.comboBoxCoordinatesSeparator.addItem(
+            "\(Backslash)",
+            COORD_PAIR_SEP_BACKSLASH,
+        )
+
+        self.comboBoxCoordinatesFormat.clear()
+        self.comboBoxCoordinatesFormat.addItem(
+            "DMSH compacted",
+            DMSH_COMP,
+        )
+        self.comboBoxCoordinatesFormat.addItem(
+            "HDMS compacted",
+            HDMS_COMP,
+        )
+        self.comboBoxCoordinatesFormat.addItem(
+            "DMSH separated",
+            DMSH_SEP,
+        )
+        self.comboBoxCoordinatesFormat.addItem(
+            "HDMS separated",
+            HDMS_SEP,
+        )
 
     def reset(self) -> None:
         """Set plugin widgets to initial state such as:
@@ -52,9 +118,9 @@ class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
         - coordinate list is empty
         - plain text is empty
         """
-        self.comboBoxCoordinatesSequence.setCurrentIndex(0)
-        self.comboBoxCoordinatesSeparator.setCurrentIndex(0)
-        self.comboBoxCoordinatesFormat.setCurrentIndex(0)
+        self.comboBoxCoordinatesSequence.setCurrentIndex(-1)
+        self.comboBoxCoordinatesSeparator.setCurrentIndex(-1)
+        self.comboBoxCoordinatesFormat.setCurrentIndex(-1)
         self.labelCoordinatesExample.setText('Define coordinate format to see example')
         self.lineEditOutputLayerName.clear()
         self.comboBoxOutputGeometryType.setCurrentIndex(0)
@@ -83,10 +149,13 @@ class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
               bool: True if coordinate sequence, separator, and format are set;
                   otherwise, False.
           """
-        return (
-            self.comboBoxCoordinatesSequence.currentIndex() >= 1
-            and self.comboBoxCoordinatesSeparator.currentIndex() >= 1
-            and self.comboBoxCoordinatesFormat.currentIndex() >= 1
+        return all(
+            combo.currentData() is not None
+            for combo in (
+                self.comboBoxCoordinatesSequence,
+                self.comboBoxCoordinatesSeparator,
+                self.comboBoxCoordinatesFormat,
+            )
         )
 
     def validate(self) -> None:

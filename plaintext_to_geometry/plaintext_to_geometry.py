@@ -41,15 +41,6 @@ from .plaintext_to_geometry_dialog import PlainTextToGeometryDialog
 
 from .aviation_gis_toolkit.const import AT_LATITUDE, AT_LONGITUDE
 from .aviation_gis_toolkit.coordinate_extraction import (
-    COORD_PAIR_SEP_NONE,
-    COORD_PAIR_SEP_SPACE,
-    COORD_PAIR_SEP_HYPHEN,
-    COORD_PAIR_SEP_SLASH,
-    COORD_PAIR_SEP_BACKSLASH,
-    DMSH_COMP,
-    HDMS_COMP,
-    DMSH_SEP,
-    HDMS_SEP,
     SEQUENCE_LON_LAT,
     SEQUENCE_LAT_LON,
     CoordinatePairExtraction
@@ -63,26 +54,6 @@ from .layer_utils import (
     create_features,
     add_features_to_layer
 )
-
-coord_sequence = {
-    1: SEQUENCE_LAT_LON,
-    2: SEQUENCE_LON_LAT
-}
-
-coord_pair_sep = {
-    1: COORD_PAIR_SEP_NONE,
-    2: COORD_PAIR_SEP_SPACE,
-    3: COORD_PAIR_SEP_HYPHEN,
-    4: COORD_PAIR_SEP_SLASH,
-    5: COORD_PAIR_SEP_BACKSLASH
-}
-
-coord_format = {
-    1: DMSH_COMP,
-    2: HDMS_COMP,
-    3: DMSH_SEP,
-    4: HDMS_SEP
-}
 
 
 class PlainTextToGeometry:
@@ -249,21 +220,24 @@ class PlainTextToGeometry:
             self.clear_extracted_coordinates()
 
     def set_coordinate_pair_format(self) -> None:
-        """Get coordinate pair format from GUI"""
-        if self.dlg.is_coordinate_format_set():
-            self.coordinates_pair_format['sequence'] = coord_sequence[self.dlg.comboBoxCoordinatesSequence.currentIndex()]
-            self.coordinates_pair_format['coordinate_format'] = coord_format[
-                self.dlg.comboBoxCoordinatesFormat.currentIndex()]
-            self.coordinates_pair_format['separator'] = coord_pair_sep[
-                self.dlg.comboBoxCoordinatesSeparator.currentIndex()]
-            self.set_coordinate_extractor()
-            self.clear_extracted_coordinates()
-            self.show_sample_coordinate_format()
-        else:
+        """Set the coordinate pair format from GUI selections."""
+        if not self.dlg.is_coordinate_format_set():
             self.coordinates_pair_format = {}
             self.coordinate_extractor = None
             self.clear_extracted_coordinates()
-            self.dlg.labelCoordinatesExample.setText('Define coordinate format to see example')
+            self.dlg.labelCoordinatesExample.setText(
+                'Define coordinate format to see example'
+            )
+            return
+
+        self.coordinates_pair_format = {
+            'sequence': self.dlg.comboBoxCoordinatesSequence.currentData(),
+            'coordinate_format': self.dlg.comboBoxCoordinatesFormat.currentData(),
+            'separator': self.dlg.comboBoxCoordinatesSeparator.currentData(),
+        }
+        self.set_coordinate_extractor()
+        self.clear_extracted_coordinates()
+        self.show_sample_coordinate_format()
 
     def set_coordinate_extractor(self) -> None:
         """Initiate CoordinatePairExtraction instance based on the coordinate pair format settings"""
