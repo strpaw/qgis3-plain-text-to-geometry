@@ -22,14 +22,11 @@
  ***************************************************************************/
 """
 import os.path
-import re
 
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox, QTableWidgetItem
+from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox
 from qgis.core import (
-    QgsFeature,
-    QgsGeometry,
     QgsPointXY,
     QgsVectorLayer
 )
@@ -39,13 +36,7 @@ from .resources import *  # pylint: disable=unused-wildcard-import, wildcard-imp
 # Import the code for the dialog
 from .plaintext_to_geometry_dialog import PlainTextToGeometryDialog
 
-from .aviation_gis_toolkit.const import AT_LATITUDE, AT_LONGITUDE
-from .aviation_gis_toolkit.coordinate_extraction import (
-    SEQUENCE_LON_LAT,
-    SEQUENCE_LAT_LON,
-    CoordinatePairExtraction
-)
-from .aviation_gis_toolkit.coordinate import Coordinate
+from .aviation_gis_toolkit.coordinate_extraction import CoordinatePairExtraction
 from .exceptions import FormValidationException, AddingFeaturesException
 from .layer_utils import (
     create_output_layer,
@@ -53,6 +44,11 @@ from .layer_utils import (
     get_potential_output_layers,
     create_features,
     add_features_to_layer
+)
+from .plugin_types import CoordinatePair
+from .points_utils import (
+    normalize_coordinate_pairs,
+    to_qgis_points
 )
 
 
@@ -67,8 +63,7 @@ class PlainTextToGeometry:
             application at run time.
         :type iface: QgsInterface
         """
-        self.coordinates_pair_format = {}
-        self.coordinate_extractor = None
+        self.coordinate_extractor: CoordinatePairExtraction | None = None
         self.output_layer = None
         self.coordinates_extracted = False
         # Save reference to the QGIS interface
@@ -206,44 +201,34 @@ class PlainTextToGeometry:
                 action)
             self.iface.removeToolBarIcon(action)
 
-    def clear_extracted_coordinates(self) -> None:
-        """ Clear marking for extracted coordinates and reset coordinate list. """
-        self.coordinates_extracted = False
-        self.dlg.tableWidgetCoordinates.setRowCount(0)
-        self.dlg.clear_coordinates_marking()
-
     def input_data_changes(self) -> None:
         """ Clear marking for extracted coordinates and reset coordinate list in case:
             - plain text is edited
             - geometry type changes """
         if self.coordinates_extracted:
-            self.clear_extracted_coordinates()
+            self.dlg.clear_extracted_coordinates()
 
     def set_coordinate_pair_format(self) -> None:
         """Set the coordinate pair format from GUI selections."""
         if not self.dlg.is_coordinate_format_set():
-            self.coordinates_pair_format = {}
             self.coordinate_extractor = None
-            self.clear_extracted_coordinates()
+            self.dlg.clear_extracted_coordinates()
             self.dlg.labelCoordinatesExample.setText(
                 'Define coordinate format to see example'
             )
             return
 
-        self.coordinates_pair_format = {
-            'sequence': self.dlg.comboBoxCoordinatesSequence.currentData(),
-            'coordinate_format': self.dlg.comboBoxCoordinatesFormat.currentData(),
-            'separator': self.dlg.comboBoxCoordinatesSeparator.currentData(),
-        }
         self.set_coordinate_extractor()
-        self.clear_extracted_coordinates()
+        self.dlg.clear_extracted_coordinates()
         self.show_sample_coordinate_format()
 
     def set_coordinate_extractor(self) -> None:
         """Initiate CoordinatePairExtraction instance based on the coordinate pair format settings"""
-        self.coordinate_extractor = CoordinatePairExtraction(self.coordinates_pair_format['sequence'],
-                                                             self.coordinates_pair_format["coordinate_format"],
-                                                             self.coordinates_pair_format['separator'])
+        self.coordinate_extractor = CoordinatePairExtraction(
+            coord_sequence=self.dlg.comboBoxCoordinatesSequence.currentData(),
+            coord_format=self.dlg.comboBoxCoordinatesFormat.currentData(),
+            coord_sep=self.dlg.comboBoxCoordinatesSeparator.currentData(),
+        )
 
     def show_sample_coordinate_format(self) -> None:
         """Display example of coordinate pair based on the on the coordinate pair format settings"""
@@ -266,52 +251,6 @@ class PlainTextToGeometry:
         plain_text = self.dlg.textEditPlainText.toHtml()
         coordinates = self.coordinate_extractor.extract_coordinates(plain_text)
         return coordinates
-
-    def mark_coordinates(self, coordinates: list[tuple[str, str]]) -> None:
-        """ Mark extracted coordinates in plain text - set the color to green.
-        param coordinates: list, list of extracted coordinates
-        """
-        if coordinates:
-            text = self.dlg.textEditPlainText.toHtml()
-            for c1, c2 in coordinates:
-                coord_pair = f'{c1}{self.coordinates_pair_format["separator"]}{c2}'
-                text = re.sub(coord_pair, f'<span style="color:green;">{coord_pair}</span>', text)
-
-            self.dlg.textEditPlainText.setHtml(text)
-
-    def insert_coordinates_to_list(self, lon: str, lat: str) -> None:
-        row_pos = self.dlg.tableWidgetCoordinates.rowCount()
-        self.dlg.tableWidgetCoordinates.insertRow(row_pos)
-        self.dlg.tableWidgetCoordinates.setItem(row_pos, 0, QTableWidgetItem(lon))
-        self.dlg.tableWidgetCoordinates.setItem(row_pos, 1, QTableWidgetItem(lat))
-
-    def fill_in_coordinate_list(self, coordinate_list) -> None:
-        self.dlg.tableWidgetCoordinates.setRowCount(0)
-        if self.coordinate_extractor.coord_sequence == SEQUENCE_LON_LAT:
-            for lon, lat in coordinate_list:
-                self.insert_coordinates_to_list(lon, lat)
-        elif self.coordinate_extractor.coord_sequence == SEQUENCE_LAT_LON:
-            for lat, lon in coordinate_list:
-                self.insert_coordinates_to_list(lon, lat)
-
-    def get_qgspoints(self) -> list[QgsPointXY]:
-        """ Create list of QgsPoints based on extracted coordinates.
-        return: points: list of QGsPoint
-        """
-        points = []
-        points_count = self.dlg.tableWidgetCoordinates.rowCount()
-
-        for i in range(0, points_count):
-            lon = Coordinate(self.dlg.tableWidgetCoordinates.item(i, 0).text(), AT_LONGITUDE)
-            lat = Coordinate(self.dlg.tableWidgetCoordinates.item(i, 1).text(), AT_LATITUDE)
-            lon_dd = lon.convert_to_dd()
-            lat_dd = lat.convert_to_dd()
-
-            if lon_dd is not None and lat_dd is not None:
-                point = QgsPointXY(lon_dd, lat_dd)
-                points.append(point)
-
-        return points
 
     def add_features(self, points: list[QgsPointXY]) -> None:
         """Create and add features to the output layer.
@@ -362,9 +301,14 @@ class PlainTextToGeometry:
 
         :param coordinates: extracted coordinates from plain text.
         """
-        self.mark_coordinates(coordinates)
-        self.fill_in_coordinate_list(coordinates)
-        self.add_features(self.get_qgspoints())
+        norm_coordinates = normalize_coordinate_pairs(coordinates=coordinates,
+                                                      sequence=self.coordinate_extractor.coord_sequence)
+        qgis_points = to_qgis_points(coordinates=norm_coordinates)
+        self.dlg.populate_coordinate_table(norm_coordinates)
+        self.dlg.mark_coordinates(coordinates=norm_coordinates,
+                                  coord_order=self.coordinate_extractor.coord_sequence,
+                                  coord_sep=self.coordinate_extractor.coord_sep)
+        self.add_features(qgis_points)
 
     def plain_text_to_geometry(self) -> None:
         """Extract coordinates from plain text"""
@@ -386,7 +330,7 @@ class PlainTextToGeometry:
 
         coordinates = self.get_coordinates_from_plain_text()
         if not coordinates:
-            self.clear_extracted_coordinates()
+            self.dlg.clear_extracted_coordinates()
             self.coordinates_extracted = False
 
         self.process_coordinates(coordinates)
