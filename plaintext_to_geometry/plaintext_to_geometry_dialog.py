@@ -23,11 +23,11 @@
 """
 
 import os
+import re
 
+import cycler
 from qgis.PyQt import uic
 from qgis.PyQt import QtWidgets
-
-from PyQt5.QtCore import QSignalBlocker
 
 from .aviation_gis_toolkit.coordinate_extraction import (
     COORD_PAIR_SEP_NONE,
@@ -42,6 +42,7 @@ from .aviation_gis_toolkit.coordinate_extraction import (
     SEQUENCE_LON_LAT,
     SEQUENCE_LAT_LON,
 )
+from .plugin_types import CoordinatePair
 from .exceptions import FormValidationException
 
 
@@ -147,6 +148,49 @@ class PlainTextToGeometryDialog(QtWidgets.QDialog, FORM_CLASS):
         if geometry_type == 'Line':
             geometry_type += 'String'
         return geometry_type
+
+    def add_coordinate_row(self, coordinate: CoordinatePair) -> None:
+        """Add a coordinate pair as a new row in the extracted coordinate table.
+
+        :param coordinate: Coordinate pair
+        """
+        row_pos = self.tableWidgetCoordinates.rowCount()
+        self.tableWidgetCoordinates.insertRow(row_pos)
+        self.tableWidgetCoordinates.setItem(row_pos, 0, QtWidgets.QTableWidgetItem(coordinate.longitude))
+        self.tableWidgetCoordinates.setItem(row_pos, 1, QtWidgets.QTableWidgetItem(coordinate.latitude))
+
+    def populate_coordinate_table(self, coordinate_list: list[CoordinatePair]) -> None:
+        """Populate the coordinate table with a list of extracted coordinate pairs.
+
+        :param coordinate_list: Normalised coordinate pairs (order lon, lat) to add to the table.
+        """
+        self.tableWidgetCoordinates.setRowCount(0)
+        for c in coordinate_list:
+            self.add_coordinate_row(c)
+
+    def mark_coordinates(self,
+                         coordinates: list[CoordinatePair],
+                         coord_order: str,
+                         coord_sep: str) -> None:
+        """Mark extracted coordinates in the plain text widget in green.
+
+        :param coordinates: Extracted coordinate pair
+        :param coord_order: Coordinate order
+        :param coord_sep: Separator used between coordinate values
+        """
+        text = self.textEditPlainText.toHtml()
+
+        if coord_order == SEQUENCE_LON_LAT:
+            coordinates = ((c.longitude, c.latitude) for c in coordinates)
+        else:
+            coordinates = ((c.latitude, c.longitude) for c in coordinates)
+
+        for first, second in coordinates:
+            coord_pair = f"{first}{coord_sep}{second}"
+            marked_pair = f'<span style="color:green;">{coord_pair}</span>'
+            text = re.sub(re.escape(coord_pair), marked_pair, text)
+
+        self.textEditPlainText.setHtml(text)
 
     def is_coordinate_format_set(self) -> bool:
         """Check whether all coordinate format options have been selected.

@@ -22,14 +22,11 @@
  ***************************************************************************/
 """
 import os.path
-import re
 
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox, QTableWidgetItem
+from qgis.PyQt.QtWidgets import QAction, QWidget, QMessageBox
 from qgis.core import (
-    QgsFeature,
-    QgsGeometry,
     QgsPointXY,
     QgsVectorLayer
 )
@@ -39,13 +36,7 @@ from .resources import *  # pylint: disable=unused-wildcard-import, wildcard-imp
 # Import the code for the dialog
 from .plaintext_to_geometry_dialog import PlainTextToGeometryDialog
 
-from .aviation_gis_toolkit.const import AT_LATITUDE, AT_LONGITUDE
-from .aviation_gis_toolkit.coordinate_extraction import (
-    SEQUENCE_LON_LAT,
-    SEQUENCE_LAT_LON,
-    CoordinatePairExtraction
-)
-from .aviation_gis_toolkit.coordinate import Coordinate
+from .aviation_gis_toolkit.coordinate_extraction import CoordinatePairExtraction
 from .exceptions import FormValidationException, AddingFeaturesException
 from .layer_utils import (
     create_output_layer,
@@ -53,6 +44,11 @@ from .layer_utils import (
     get_potential_output_layers,
     create_features,
     add_features_to_layer
+)
+from .plugin_types import CoordinatePair
+from .points_utils import (
+    normalize_coordinate_pairs,
+    to_qgis_points
 )
 
 
@@ -256,52 +252,6 @@ class PlainTextToGeometry:
         coordinates = self.coordinate_extractor.extract_coordinates(plain_text)
         return coordinates
 
-    def mark_coordinates(self, coordinates: list[tuple[str, str]]) -> None:
-        """ Mark extracted coordinates in plain text - set the color to green.
-        param coordinates: list, list of extracted coordinates
-        """
-        if coordinates:
-            text = self.dlg.textEditPlainText.toHtml()
-            for c1, c2 in coordinates:
-                coord_pair = f'{c1}{self.coordinate_extractor.coord_sep}{c2}'
-                text = re.sub(coord_pair, f'<span style="color:green;">{coord_pair}</span>', text)
-
-            self.dlg.textEditPlainText.setHtml(text)
-
-    def insert_coordinates_to_list(self, lon: str, lat: str) -> None:
-        row_pos = self.dlg.tableWidgetCoordinates.rowCount()
-        self.dlg.tableWidgetCoordinates.insertRow(row_pos)
-        self.dlg.tableWidgetCoordinates.setItem(row_pos, 0, QTableWidgetItem(lon))
-        self.dlg.tableWidgetCoordinates.setItem(row_pos, 1, QTableWidgetItem(lat))
-
-    def fill_in_coordinate_list(self, coordinate_list) -> None:
-        self.dlg.tableWidgetCoordinates.setRowCount(0)
-        if self.coordinate_extractor.coord_sequence == SEQUENCE_LON_LAT:
-            for lon, lat in coordinate_list:
-                self.insert_coordinates_to_list(lon, lat)
-        elif self.coordinate_extractor.coord_sequence == SEQUENCE_LAT_LON:
-            for lat, lon in coordinate_list:
-                self.insert_coordinates_to_list(lon, lat)
-
-    def get_qgspoints(self) -> list[QgsPointXY]:
-        """ Create list of QgsPoints based on extracted coordinates.
-        return: points: list of QGsPoint
-        """
-        points = []
-        points_count = self.dlg.tableWidgetCoordinates.rowCount()
-
-        for i in range(0, points_count):
-            lon = Coordinate(self.dlg.tableWidgetCoordinates.item(i, 0).text(), AT_LONGITUDE)
-            lat = Coordinate(self.dlg.tableWidgetCoordinates.item(i, 1).text(), AT_LATITUDE)
-            lon_dd = lon.convert_to_dd()
-            lat_dd = lat.convert_to_dd()
-
-            if lon_dd is not None and lat_dd is not None:
-                point = QgsPointXY(lon_dd, lat_dd)
-                points.append(point)
-
-        return points
-
     def add_features(self, points: list[QgsPointXY]) -> None:
         """Create and add features to the output layer.
 
@@ -351,9 +301,14 @@ class PlainTextToGeometry:
 
         :param coordinates: extracted coordinates from plain text.
         """
-        self.mark_coordinates(coordinates)
-        self.fill_in_coordinate_list(coordinates)
-        self.add_features(self.get_qgspoints())
+        norm_coordinates = normalize_coordinate_pairs(coordinates=coordinates,
+                                                      sequence=self.coordinate_extractor.coord_sequence)
+        qgis_points = to_qgis_points(coordinates=norm_coordinates)
+        self.dlg.populate_coordinate_table(norm_coordinates)
+        self.dlg.mark_coordinates(coordinates=norm_coordinates,
+                                  coord_order=self.coordinate_extractor.coord_sequence,
+                                  coord_sep=self.coordinate_extractor.coord_sep)
+        self.add_features(qgis_points)
 
     def plain_text_to_geometry(self) -> None:
         """Extract coordinates from plain text"""
